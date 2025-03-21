@@ -1,0 +1,603 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 77;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		89A0DEE32D64CA030004E8B1 /* CoreFoundation.framework in Frameworks */ = {isa = PBXBuildFile; fileRef = 89A0DEE22D64CA030004E8B1 /* CoreFoundation.framework */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		891582C62D61AFD400044287 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 891582A72D61AFD400044287 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 891582AE2D61AFD400044287;
+			remoteInfo = "HID mode test1";
+		};
+		891582D02D61AFD400044287 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = 891582A72D61AFD400044287 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = 891582AE2D61AFD400044287;
+			remoteInfo = "HID mode test1";
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		891582AF2D61AFD400044287 /* HID mode test1.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "HID mode test1.app"; sourceTree = BUILT_PRODUCTS_DIR; };
+		891582C52D61AFD400044287 /* HID mode test1Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "HID mode test1Tests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		891582CF2D61AFD400044287 /* HID mode test1UITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "HID mode test1UITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		89A0DEDF2D64C61B0004E8B1 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
+		89A0DEE22D64CA030004E8B1 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
+/* End PBXFileReference section */
+
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		891582D72D61AFD400044287 /* Exceptions for "HID mode test1" folder in "HID mode test1" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 891582AE2D61AFD400044287 /* HID mode test1 */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
+/* Begin PBXFileSystemSynchronizedRootGroup section */
+		891582B12D61AFD400044287 /* HID mode test1 */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				891582D72D61AFD400044287 /* Exceptions for "HID mode test1" folder in "HID mode test1" target */,
+			);
+			path = "HID mode test1";
+			sourceTree = "<group>";
+		};
+		891582C82D61AFD400044287 /* HID mode test1Tests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "HID mode test1Tests";
+			sourceTree = "<group>";
+		};
+		891582D22D61AFD400044287 /* HID mode test1UITests */ = {
+			isa = PBXFileSystemSynchronizedRootGroup;
+			path = "HID mode test1UITests";
+			sourceTree = "<group>";
+		};
+/* End PBXFileSystemSynchronizedRootGroup section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		891582AC2D61AFD400044287 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				89A0DEE32D64CA030004E8B1 /* CoreFoundation.framework in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		891582C22D61AFD400044287 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		891582CC2D61AFD400044287 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		891582A62D61AFD400044287 = {
+			isa = PBXGroup;
+			children = (
+				891582B12D61AFD400044287 /* HID mode test1 */,
+				891582C82D61AFD400044287 /* HID mode test1Tests */,
+				891582D22D61AFD400044287 /* HID mode test1UITests */,
+				89A0DEDE2D64C61B0004E8B1 /* Frameworks */,
+				891582B02D61AFD400044287 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		891582B02D61AFD400044287 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				891582AF2D61AFD400044287 /* HID mode test1.app */,
+				891582C52D61AFD400044287 /* HID mode test1Tests.xctest */,
+				891582CF2D61AFD400044287 /* HID mode test1UITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		89A0DEDE2D64C61B0004E8B1 /* Frameworks */ = {
+			isa = PBXGroup;
+			children = (
+				89A0DEE22D64CA030004E8B1 /* CoreFoundation.framework */,
+				89A0DEDF2D64C61B0004E8B1 /* IOKit.framework */,
+			);
+			name = Frameworks;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		891582AE2D61AFD400044287 /* HID mode test1 */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 891582D82D61AFD400044287 /* Build configuration list for PBXNativeTarget "HID mode test1" */;
+			buildPhases = (
+				891582AB2D61AFD400044287 /* Sources */,
+				891582AC2D61AFD400044287 /* Frameworks */,
+				891582AD2D61AFD400044287 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			fileSystemSynchronizedGroups = (
+				891582B12D61AFD400044287 /* HID mode test1 */,
+			);
+			name = "HID mode test1";
+			packageProductDependencies = (
+			);
+			productName = "HID mode test1";
+			productReference = 891582AF2D61AFD400044287 /* HID mode test1.app */;
+			productType = "com.apple.product-type.application";
+		};
+		891582C42D61AFD400044287 /* HID mode test1Tests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 891582DD2D61AFD400044287 /* Build configuration list for PBXNativeTarget "HID mode test1Tests" */;
+			buildPhases = (
+				891582C12D61AFD400044287 /* Sources */,
+				891582C22D61AFD400044287 /* Frameworks */,
+				891582C32D61AFD400044287 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				891582C72D61AFD400044287 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				891582C82D61AFD400044287 /* HID mode test1Tests */,
+			);
+			name = "HID mode test1Tests";
+			packageProductDependencies = (
+			);
+			productName = "HID mode test1Tests";
+			productReference = 891582C52D61AFD400044287 /* HID mode test1Tests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		891582CE2D61AFD400044287 /* HID mode test1UITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 891582E02D61AFD400044287 /* Build configuration list for PBXNativeTarget "HID mode test1UITests" */;
+			buildPhases = (
+				891582CB2D61AFD400044287 /* Sources */,
+				891582CC2D61AFD400044287 /* Frameworks */,
+				891582CD2D61AFD400044287 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				891582D12D61AFD400044287 /* PBXTargetDependency */,
+			);
+			fileSystemSynchronizedGroups = (
+				891582D22D61AFD400044287 /* HID mode test1UITests */,
+			);
+			name = "HID mode test1UITests";
+			packageProductDependencies = (
+			);
+			productName = "HID mode test1UITests";
+			productReference = 891582CF2D61AFD400044287 /* HID mode test1UITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		891582A72D61AFD400044287 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 1620;
+				LastUpgradeCheck = 1620;
+				TargetAttributes = {
+					891582AE2D61AFD400044287 = {
+						CreatedOnToolsVersion = 16.2;
+					};
+					891582C42D61AFD400044287 = {
+						CreatedOnToolsVersion = 16.2;
+						TestTargetID = 891582AE2D61AFD400044287;
+					};
+					891582CE2D61AFD400044287 = {
+						CreatedOnToolsVersion = 16.2;
+						TestTargetID = 891582AE2D61AFD400044287;
+					};
+				};
+			};
+			buildConfigurationList = 891582AA2D61AFD400044287 /* Build configuration list for PBXProject "HID mode test1" */;
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 891582A62D61AFD400044287;
+			minimizedProjectReferenceProxies = 1;
+			preferredProjectObjectVersion = 77;
+			productRefGroup = 891582B02D61AFD400044287 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				891582AE2D61AFD400044287 /* HID mode test1 */,
+				891582C42D61AFD400044287 /* HID mode test1Tests */,
+				891582CE2D61AFD400044287 /* HID mode test1UITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		891582AD2D61AFD400044287 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		891582C32D61AFD400044287 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		891582CD2D61AFD400044287 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		891582AB2D61AFD400044287 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		891582C12D61AFD400044287 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		891582CB2D61AFD400044287 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		891582C72D61AFD400044287 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 891582AE2D61AFD400044287 /* HID mode test1 */;
+			targetProxy = 891582C62D61AFD400044287 /* PBXContainerItemProxy */;
+		};
+		891582D12D61AFD400044287 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = 891582AE2D61AFD400044287 /* HID mode test1 */;
+			targetProxy = 891582D02D61AFD400044287 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		891582D92D61AFD400044287 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
+				CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8C77UHM3JF;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "HID mode test1/Info.plist";
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "此應用程式需要使用藍牙功能來連接掃描器";
+				INFOPLIST_KEY_NSBluetoothPeripheralUsageDescription = "此應用程式需要使用藍牙功能來連接掃描器";
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen.storyboard;
+				INFOPLIST_KEY_UIMainStoryboardFile = Main;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = "";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.test.HID-mode-test1";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Debug;
+		};
+		891582DA2D61AFD400044287 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = AppIcon;
+				ASSETCATALOG_COMPILER_GLOBAL_ACCENT_COLOR_NAME = AccentColor;
+				ASSETCATALOG_COMPILER_INCLUDE_ALL_APPICON_ASSETS = NO;
+				CLANG_ALLOW_NON_MODULAR_INCLUDES_IN_FRAMEWORK_MODULES = YES;
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				DEVELOPMENT_TEAM = 8C77UHM3JF;
+				FRAMEWORK_SEARCH_PATHS = "";
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_FILE = "HID mode test1/Info.plist";
+				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "此應用程式需要使用藍牙功能來連接掃描器";
+				INFOPLIST_KEY_NSBluetoothPeripheralUsageDescription = "此應用程式需要使用藍牙功能來連接掃描器";
+				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
+				INFOPLIST_KEY_UILaunchStoryboardName = LaunchScreen.storyboard;
+				INFOPLIST_KEY_UIMainStoryboardFile = Main;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations = UIInterfaceOrientationPortrait;
+				INFOPLIST_KEY_UISupportedInterfaceOrientations_iPad = "UIInterfaceOrientationLandscapeLeft UIInterfaceOrientationLandscapeRight UIInterfaceOrientationPortrait UIInterfaceOrientationPortraitUpsideDown";
+				IPHONEOS_DEPLOYMENT_TARGET = 16.6;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/Frameworks",
+				);
+				MARKETING_VERSION = 1.0;
+				OTHER_LDFLAGS = "";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.test.HID-mode-test1";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = YES;
+				SWIFT_OBJC_BRIDGING_HEADER = "";
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+			};
+			name = Release;
+		};
+		891582DB2D61AFD400044287 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = INCLUDE_SOURCE;
+				MTL_FAST_MATH = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = "DEBUG $(inherited)";
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		891582DC2D61AFD400044287 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				ASSETCATALOG_COMPILER_GENERATE_SWIFT_ASSET_SYMBOL_EXTENSIONS = YES;
+				CLANG_ANALYZER_NONNULL = YES;
+				CLANG_ANALYZER_NUMBER_OBJECT_CONVERSION = YES_AGGRESSIVE;
+				CLANG_CXX_LANGUAGE_STANDARD = "gnu++20";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_ENABLE_OBJC_WEAK = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_DOCUMENTATION_COMMENTS = YES;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNGUARDED_AVAILABILITY = YES_AGGRESSIVE;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_USER_SCRIPT_SANDBOXING = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				LOCALIZATION_PREFERS_STRING_CATALOGS = YES;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				MTL_FAST_MATH = YES;
+				SDKROOT = iphoneos;
+				SWIFT_COMPILATION_MODE = wholemodule;
+				VALIDATE_PRODUCT = YES;
+			};
+			name = Release;
+		};
+		891582DE2D61AFD400044287 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.test.HID-mode-test1Tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/HID mode test1.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/HID mode test1";
+			};
+			name = Debug;
+		};
+		891582DF2D61AFD400044287 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				IPHONEOS_DEPLOYMENT_TARGET = 18.2;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.test.HID-mode-test1Tests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/HID mode test1.app/$(BUNDLE_EXECUTABLE_FOLDER_PATH)/HID mode test1";
+			};
+			name = Release;
+		};
+		891582E12D61AFD400044287 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.test.HID-mode-test1UITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "HID mode test1";
+			};
+			name = Debug;
+		};
+		891582E22D61AFD400044287 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MARKETING_VERSION = 1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = "com.test.HID-mode-test1UITests";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SWIFT_EMIT_LOC_STRINGS = NO;
+				SWIFT_VERSION = 5.0;
+				TARGETED_DEVICE_FAMILY = "1,2";
+				TEST_TARGET_NAME = "HID mode test1";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		891582AA2D61AFD400044287 /* Build configuration list for PBXProject "HID mode test1" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				891582DB2D61AFD400044287 /* Debug */,
+				891582DC2D61AFD400044287 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		891582D82D61AFD400044287 /* Build configuration list for PBXNativeTarget "HID mode test1" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				891582D92D61AFD400044287 /* Debug */,
+				891582DA2D61AFD400044287 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		891582DD2D61AFD400044287 /* Build configuration list for PBXNativeTarget "HID mode test1Tests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				891582DE2D61AFD400044287 /* Debug */,
+				891582DF2D61AFD400044287 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		891582E02D61AFD400044287 /* Build configuration list for PBXNativeTarget "HID mode test1UITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				891582E12D61AFD400044287 /* Debug */,
+				891582E22D61AFD400044287 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 891582A72D61AFD400044287 /* Project object */;
+}
