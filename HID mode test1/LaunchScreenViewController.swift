@@ -4,7 +4,11 @@
 //
 //  Created by 廖亞丞 on 2025/3/21.
 //這是Ｃ版本
+<<<<<<< HEAD
 //這是Ｄ版本新增的
+=======
+
+>>>>>>> 915a3f0 ( 這是Ｃ版本)
 import UIKit
 
 class LaunchScreenViewController: UIViewController {
