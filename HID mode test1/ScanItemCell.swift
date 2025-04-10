@@ -170,43 +170,45 @@ class ScanItemCell: UITableViewCell {
     }
     
     func configure(with item: ScanItem) {
-        // 確保條碼正確顯示
-        
-        //codeLabel.text = "條碼: \(item.code)"
-         codeLabel.text = item.code
-
-        print("設置條碼: \(item.code)") // 用於除錯
-
-        carLabel.text = item.carNumber.map { "車牌: \($0)" } ?? "車牌: 未設置"
-        
-        // 分割時間字串
-        let timeComponents = item.time.split(separator: " ")
-        if timeComponents.count == 2 {
-            dateLabel.text = String(timeComponents[0])
-            timeLabel.text = String(timeComponents[1])
-        }
-        
-        if item.isEdited {
-            editedStatusImageView.image = UIImage(systemName: "checkmark.circle.fill")
-            editedStatusImageView.isHidden = false
-        } else {
-            editedStatusImageView.isHidden = true
-        }
-        
-        var details: [String] = []
-        if let resident = item.residentNumber, !resident.isEmpty {
-            details.append("住戶: \(resident)")
-        }
-        if let parking = item.parkingCount, !parking.isEmpty {
-            details.append("車位: \(parking)")
-        }
-        detailsLabel.text = details.joined(separator: " | ")
-        detailsLabel.isHidden = details.isEmpty
-        
-        checkboxButton.isSelected = item.isSelected
-        // 設置編輯狀態
-        editedStatusImageView.isHidden = !item.isEdited
+    // 顯示戶別為主標題（如果有的話），否則顯示「未設置戶別」
+    codeLabel.text = item.household?.isEmpty == false ? item.household : "未設置戶別"
+    
+    // 顯示ETC條碼為副標題
+    carLabel.text = "ETC: \(item.code)"
+    
+    // 分割時間字串
+    let timeComponents = item.time.split(separator: " ")
+    if timeComponents.count == 2 {
+        dateLabel.text = String(timeComponents[0])
+        timeLabel.text = String(timeComponents[1])
     }
+    
+    if item.isEdited {
+        editedStatusImageView.image = UIImage(systemName: "checkmark.circle.fill")
+        editedStatusImageView.isHidden = false
+    } else {
+        editedStatusImageView.isHidden = true
+    }
+    
+    var details: [String] = []
+    if let building = item.building, !building.isEmpty {
+        details.append("棟別: \(building)")
+    }
+    if let parkingNumber = item.parkingNumber, !parkingNumber.isEmpty {
+        details.append("車位: \(parkingNumber)")
+    }
+    if let carNumber = item.carNumber, !carNumber.isEmpty {
+        details.append("車牌: \(carNumber)")
+    }
+    
+    detailsLabel.text = details.joined(separator: " | ")
+    detailsLabel.isHidden = details.isEmpty
+    
+    checkboxButton.isSelected = item.isSelected
+    // 設置編輯狀態
+    editedStatusImageView.isHidden = !item.isEdited
+
+}
     @objc private func editButtonTapped() {
         onEditButtonTapped?()
     }
