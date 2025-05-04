@@ -1,6 +1,6 @@
 //
-//  HID_mode_test1UITests.swift
-//  HID mode test1UITests
+//  ETC_ScannerUITests.swift
+//  ETC_ScannerUITests
 //
 //  Created by 廖亞丞 on 2025/2/16.
 //
