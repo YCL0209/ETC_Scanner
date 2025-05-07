@@ -28,40 +28,40 @@
 /* End PBXContainerItemProxy section */
 
 /* Begin PBXFileReference section */
-		891582AF2D61AFD400044287 /* HID mode test1.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = "HID mode test1.app"; sourceTree = BUILT_PRODUCTS_DIR; };
-		891582C52D61AFD400044287 /* HID mode test1Tests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "HID mode test1Tests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
-		891582CF2D61AFD400044287 /* HID mode test1UITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = "HID mode test1UITests.xctest"; sourceTree = BUILT_PRODUCTS_DIR; };
+		891582AF2D61AFD400044287 /* ETC_Scanner.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = ETC_Scanner.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		891582C52D61AFD400044287 /* ETC_ScannerTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ETC_ScannerTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		891582CF2D61AFD400044287 /* ETC_ScannerUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = ETC_ScannerUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		89A0DEDF2D64C61B0004E8B1 /* IOKit.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = IOKit.framework; path = System/Library/Frameworks/IOKit.framework; sourceTree = SDKROOT; };
 		89A0DEE22D64CA030004E8B1 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
 /* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
-		891582D72D61AFD400044287 /* Exceptions for "HID mode test1" folder in "HID mode test1" target */ = {
+		891582D72D61AFD400044287 /* Exceptions for "ETC_Scanner" folder in "ETC_Scanner" target */ = {
 			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
 			membershipExceptions = (
 				Info.plist,
 			);
-			target = 891582AE2D61AFD400044287 /* HID mode test1 */;
+			target = 891582AE2D61AFD400044287 /* ETC_Scanner */;
 		};
 /* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
 
 /* Begin PBXFileSystemSynchronizedRootGroup section */
-		891582B12D61AFD400044287 /* HID mode test1 */ = {
+		891582B12D61AFD400044287 /* ETC_Scanner */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
 			exceptions = (
-				891582D72D61AFD400044287 /* Exceptions for "HID mode test1" folder in "HID mode test1" target */,
+				891582D72D61AFD400044287 /* Exceptions for "ETC_Scanner" folder in "ETC_Scanner" target */,
 			);
-			path = "HID mode test1";
+			path = ETC_Scanner;
 			sourceTree = "<group>";
 		};
-		891582C82D61AFD400044287 /* HID mode test1Tests */ = {
+		891582C82D61AFD400044287 /* ETC_ScannerTests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "HID mode test1Tests";
+			path = ETC_ScannerTests;
 			sourceTree = "<group>";
 		};
-		891582D22D61AFD400044287 /* HID mode test1UITests */ = {
+		891582D22D61AFD400044287 /* ETC_ScannerUITests */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
-			path = "HID mode test1UITests";
+			path = ETC_ScannerUITests;
 			sourceTree = "<group>";
 		};
 /* End PBXFileSystemSynchronizedRootGroup section */
@@ -95,9 +95,9 @@
 		891582A62D61AFD400044287 = {
 			isa = PBXGroup;
 			children = (
-				891582B12D61AFD400044287 /* HID mode test1 */,
-				891582C82D61AFD400044287 /* HID mode test1Tests */,
-				891582D22D61AFD400044287 /* HID mode test1UITests */,
+				891582B12D61AFD400044287 /* ETC_Scanner */,
+				891582C82D61AFD400044287 /* ETC_ScannerTests */,
+				891582D22D61AFD400044287 /* ETC_ScannerUITests */,
 				89A0DEDE2D64C61B0004E8B1 /* Frameworks */,
 				891582B02D61AFD400044287 /* Products */,
 			);
@@ -106,9 +106,9 @@
 		891582B02D61AFD400044287 /* Products */ = {
 			isa = PBXGroup;
 			children = (
-				891582AF2D61AFD400044287 /* HID mode test1.app */,
-				891582C52D61AFD400044287 /* HID mode test1Tests.xctest */,
-				891582CF2D61AFD400044287 /* HID mode test1UITests.xctest */,
+				891582AF2D61AFD400044287 /* ETC_Scanner.app */,
+				891582C52D61AFD400044287 /* ETC_ScannerTests.xctest */,
+				891582CF2D61AFD400044287 /* ETC_ScannerUITests.xctest */,
 			);
 			name = Products;
 			sourceTree = "<group>";
@@ -125,9 +125,9 @@
 /* End PBXGroup section */
 
 /* Begin PBXNativeTarget section */
-		891582AE2D61AFD400044287 /* HID mode test1 */ = {
+		891582AE2D61AFD400044287 /* ETC_Scanner */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 891582D82D61AFD400044287 /* Build configuration list for PBXNativeTarget "HID mode test1" */;
+			buildConfigurationList = 891582D82D61AFD400044287 /* Build configuration list for PBXNativeTarget "ETC_Scanner" */;
 			buildPhases = (
 				891582AB2D61AFD400044287 /* Sources */,
 				891582AC2D61AFD400044287 /* Frameworks */,
@@ -138,18 +138,18 @@
 			dependencies = (
 			);
 			fileSystemSynchronizedGroups = (
-				891582B12D61AFD400044287 /* HID mode test1 */,
+				891582B12D61AFD400044287 /* ETC_Scanner */,
 			);
-			name = "HID mode test1";
+			name = ETC_Scanner;
 			packageProductDependencies = (
 			);
 			productName = "HID mode test1";
-			productReference = 891582AF2D61AFD400044287 /* HID mode test1.app */;
+			productReference = 891582AF2D61AFD400044287 /* ETC_Scanner.app */;
 			productType = "com.apple.product-type.application";
 		};
-		891582C42D61AFD400044287 /* HID mode test1Tests */ = {
+		891582C42D61AFD400044287 /* ETC_ScannerTests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 891582DD2D61AFD400044287 /* Build configuration list for PBXNativeTarget "HID mode test1Tests" */;
+			buildConfigurationList = 891582DD2D61AFD400044287 /* Build configuration list for PBXNativeTarget "ETC_ScannerTests" */;
 			buildPhases = (
 				891582C12D61AFD400044287 /* Sources */,
 				891582C22D61AFD400044287 /* Frameworks */,
@@ -161,18 +161,18 @@
 				891582C72D61AFD400044287 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				891582C82D61AFD400044287 /* HID mode test1Tests */,
+				891582C82D61AFD400044287 /* ETC_ScannerTests */,
 			);
-			name = "HID mode test1Tests";
+			name = ETC_ScannerTests;
 			packageProductDependencies = (
 			);
 			productName = "HID mode test1Tests";
-			productReference = 891582C52D61AFD400044287 /* HID mode test1Tests.xctest */;
+			productReference = 891582C52D61AFD400044287 /* ETC_ScannerTests.xctest */;
 			productType = "com.apple.product-type.bundle.unit-test";
 		};
-		891582CE2D61AFD400044287 /* HID mode test1UITests */ = {
+		891582CE2D61AFD400044287 /* ETC_ScannerUITests */ = {
 			isa = PBXNativeTarget;
-			buildConfigurationList = 891582E02D61AFD400044287 /* Build configuration list for PBXNativeTarget "HID mode test1UITests" */;
+			buildConfigurationList = 891582E02D61AFD400044287 /* Build configuration list for PBXNativeTarget "ETC_ScannerUITests" */;
 			buildPhases = (
 				891582CB2D61AFD400044287 /* Sources */,
 				891582CC2D61AFD400044287 /* Frameworks */,
@@ -184,13 +184,13 @@
 				891582D12D61AFD400044287 /* PBXTargetDependency */,
 			);
 			fileSystemSynchronizedGroups = (
-				891582D22D61AFD400044287 /* HID mode test1UITests */,
+				891582D22D61AFD400044287 /* ETC_ScannerUITests */,
 			);
-			name = "HID mode test1UITests";
+			name = ETC_ScannerUITests;
 			packageProductDependencies = (
 			);
 			productName = "HID mode test1UITests";
-			productReference = 891582CF2D61AFD400044287 /* HID mode test1UITests.xctest */;
+			productReference = 891582CF2D61AFD400044287 /* ETC_ScannerUITests.xctest */;
 			productType = "com.apple.product-type.bundle.ui-testing";
 		};
 /* End PBXNativeTarget section */
@@ -216,7 +216,7 @@
 					};
 				};
 			};
-			buildConfigurationList = 891582AA2D61AFD400044287 /* Build configuration list for PBXProject "HID mode test1" */;
+			buildConfigurationList = 891582AA2D61AFD400044287 /* Build configuration list for PBXProject "ETC_Scanner" */;
 			developmentRegion = en;
 			hasScannedForEncodings = 0;
 			knownRegions = (
@@ -230,9 +230,9 @@
 			projectDirPath = "";
 			projectRoot = "";
 			targets = (
-				891582AE2D61AFD400044287 /* HID mode test1 */,
-				891582C42D61AFD400044287 /* HID mode test1Tests */,
-				891582CE2D61AFD400044287 /* HID mode test1UITests */,
+				891582AE2D61AFD400044287 /* ETC_Scanner */,
+				891582C42D61AFD400044287 /* ETC_ScannerTests */,
+				891582CE2D61AFD400044287 /* ETC_ScannerUITests */,
 			);
 		};
 /* End PBXProject section */
@@ -288,12 +288,12 @@
 /* Begin PBXTargetDependency section */
 		891582C72D61AFD400044287 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 891582AE2D61AFD400044287 /* HID mode test1 */;
+			target = 891582AE2D61AFD400044287 /* ETC_Scanner */;
 			targetProxy = 891582C62D61AFD400044287 /* PBXContainerItemProxy */;
 		};
 		891582D12D61AFD400044287 /* PBXTargetDependency */ = {
 			isa = PBXTargetDependency;
-			target = 891582AE2D61AFD400044287 /* HID mode test1 */;
+			target = 891582AE2D61AFD400044287 /* ETC_Scanner */;
 			targetProxy = 891582D02D61AFD400044287 /* PBXContainerItemProxy */;
 		};
 /* End PBXTargetDependency section */
@@ -311,7 +311,7 @@
 				DEVELOPMENT_TEAM = 8C77UHM3JF;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "HID mode test1/Info.plist";
+				INFOPLIST_FILE = ETC_Scanner/Info.plist;
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "此應用程式需要使用藍牙功能來連接掃描器";
 				INFOPLIST_KEY_NSBluetoothPeripheralUsageDescription = "此應用程式需要使用藍牙功能來連接掃描器";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -326,7 +326,7 @@
 				);
 				MARKETING_VERSION = 1.0;
 				OTHER_LDFLAGS = "";
-				PRODUCT_BUNDLE_IDENTIFIER = "com.test.HID-mode-test1";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.ETC-Scanner";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OBJC_BRIDGING_HEADER = "";
@@ -347,7 +347,7 @@
 				DEVELOPMENT_TEAM = 8C77UHM3JF;
 				FRAMEWORK_SEARCH_PATHS = "";
 				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_FILE = "HID mode test1/Info.plist";
+				INFOPLIST_FILE = ETC_Scanner/Info.plist;
 				INFOPLIST_KEY_NSBluetoothAlwaysUsageDescription = "此應用程式需要使用藍牙功能來連接掃描器";
 				INFOPLIST_KEY_NSBluetoothPeripheralUsageDescription = "此應用程式需要使用藍牙功能來連接掃描器";
 				INFOPLIST_KEY_UIApplicationSupportsIndirectInputEvents = YES;
@@ -362,7 +362,7 @@
 				);
 				MARKETING_VERSION = 1.0;
 				OTHER_LDFLAGS = "";
-				PRODUCT_BUNDLE_IDENTIFIER = "com.test.HID-mode-test1";
+				PRODUCT_BUNDLE_IDENTIFIER = "com.ETC-Scanner";
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SWIFT_EMIT_LOC_STRINGS = YES;
 				SWIFT_OBJC_BRIDGING_HEADER = "";
@@ -561,7 +561,7 @@
 /* End XCBuildConfiguration section */
 
 /* Begin XCConfigurationList section */
-		891582AA2D61AFD400044287 /* Build configuration list for PBXProject "HID mode test1" */ = {
+		891582AA2D61AFD400044287 /* Build configuration list for PBXProject "ETC_Scanner" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				891582DB2D61AFD400044287 /* Debug */,
@@ -570,7 +570,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		891582D82D61AFD400044287 /* Build configuration list for PBXNativeTarget "HID mode test1" */ = {
+		891582D82D61AFD400044287 /* Build configuration list for PBXNativeTarget "ETC_Scanner" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				891582D92D61AFD400044287 /* Debug */,
@@ -579,7 +579,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		891582DD2D61AFD400044287 /* Build configuration list for PBXNativeTarget "HID mode test1Tests" */ = {
+		891582DD2D61AFD400044287 /* Build configuration list for PBXNativeTarget "ETC_ScannerTests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				891582DE2D61AFD400044287 /* Debug */,
@@ -588,7 +588,7 @@
 			defaultConfigurationIsVisible = 0;
 			defaultConfigurationName = Release;
 		};
-		891582E02D61AFD400044287 /* Build configuration list for PBXNativeTarget "HID mode test1UITests" */ = {
+		891582E02D61AFD400044287 /* Build configuration list for PBXNativeTarget "ETC_ScannerUITests" */ = {
 			isa = XCConfigurationList;
 			buildConfigurations = (
 				891582E12D61AFD400044287 /* Debug */,

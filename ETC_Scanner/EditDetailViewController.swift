@@ -18,8 +18,84 @@ protocol EditDetailViewControllerDelegate: AnyObject {
     )
 }
 
-class EditDetailViewController: UIViewController {
+
+class EditDetailViewController: UIViewController, UITextFieldDelegate {
+
+    private struct KeyboardRules {
+        unowned let viewController: EditDetailViewController
+        
+        init(_ viewController: EditDetailViewController) {
+            self.viewController = viewController
+        }
+        
+        func keyboardType(for textField: UITextField) -> UIKeyboardType {
+            switch textField {
+            case viewController.buildingTextField:
+                return .default
+            case viewController.householdTextField:
+                return .numberPad
+            case viewController.parkingNumberTextField:
+                return .numberPad
+            case viewController.carTypeTextField:
+                return .default
+            case viewController.carNumberTextField:
+                return .asciiCapable
+            case viewController.etagNumberTextField:
+                return .asciiCapable
+            default:
+                return .default
+            }
+        }
+        
+        func capitalizationType(for textField: UITextField) -> UITextAutocapitalizationType {
+            switch textField {
+            case viewController.carNumberTextField:
+                return .allCharacters
+            default:
+                return .none
+            }
+        }
+        
+        func shouldChangeCharacters(in textField: UITextField, range: NSRange, string: String) -> Bool {
+            switch textField {
+            case viewController.parkingNumberTextField:
+                let allowedCharacters = CharacterSet.decimalDigits
+                let characterSet = CharacterSet(charactersIn: string)
+                return allowedCharacters.isSuperset(of: characterSet)
+                
+            case viewController.carNumberTextField:
+                let allowedCharacters = CharacterSet.alphanumerics
+                let characterSet = CharacterSet(charactersIn: string)
+                return allowedCharacters.isSuperset(of: characterSet) || string.isEmpty
+                
+            default:
+                return true
+            }
+        }
+        
+        func nextResponder(after textField: UITextField) -> UITextField? {
+            switch textField {
+            case viewController.buildingTextField:
+                return viewController.householdTextField
+            case viewController.householdTextField:
+                return viewController.parkingNumberTextField
+            case viewController.parkingNumberTextField:
+                return viewController.carTypeTextField
+            case viewController.carTypeTextField:
+                return viewController.carNumberTextField
+            case viewController.carNumberTextField:
+                return viewController.etagNumberTextField
+            default:
+                return nil
+            }
+        }
+    }
     
+    // 添加 KeyboardRules 實例
+    private lazy var keyboardRules: KeyboardRules = {
+        return KeyboardRules(self)
+    }()
+
     // MARK: - IBOutlets
     @IBOutlet weak var buildingTextField: UITextField!      // 棟別
     @IBOutlet weak var householdTextField: UITextField!     // 戶別
@@ -42,6 +118,15 @@ class EditDetailViewController: UIViewController {
     var currentCarNumber: String = ""
     var currentEtagNumber: String = ""
     
+    // 鍵盤狀態追蹤
+    private var keyboardIsVisible = false
+    private var activeTextField: UITextField?
+    
+    // 在 class 裡加一個 flag
+    private var hasAutoFocused = false
+    
+    private var customKeyboard: CustomAlphaNumKeyboard!
+
     // MARK: - Lifecycle
     override func viewDidLoad() {
         super.viewDidLoad()
@@ -61,17 +146,97 @@ class EditDetailViewController: UIViewController {
         loadCurrentData()
         setupTextFields() 
 
+        customKeyboard = CustomAlphaNumKeyboard()
+        buildingTextField.inputView = customKeyboard
+        householdTextField.inputView = customKeyboard
+        parkingNumberTextField.inputView = customKeyboard
+        carNumberTextField.inputView = customKeyboard
 
-        // 自動聚焦到第一個輸入欄位
-        buildingTextField.becomeFirstResponder()
+        buildingTextField.delegate = self
+        householdTextField.delegate = self
+        parkingNumberTextField.delegate = self
+        carNumberTextField.delegate = self
 
+        // 註冊鍵盤通知
+        NotificationCenter.default.addObserver(self, 
+                                              selector: #selector(keyboardWillShow(_:)), 
+                                              name: UIResponder.keyboardWillShowNotification, 
+                                              object: nil)
+        NotificationCenter.default.addObserver(self, 
+                                              selector: #selector(keyboardWillHide(_:)), 
+                                              name: UIResponder.keyboardWillHideNotification, 
+                                              object: nil)
 
         print("EditDetailViewController viewDidLoad 完成")
-         
     }
 
+    override func viewWillAppear(_ animated: Bool) {
+        super.viewWillAppear(animated)
+        
+        // 確保我們的視圖在顯示時能接收鍵盤事件
+        setupKeyboardDismissGesture()
+    }
+
+   override func viewDidAppear(_ animated: Bool) {
+    super.viewDidAppear(animated)
     
-     private func setupUI() {
+    if !hasAutoFocused {
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            self.buildingTextField.becomeFirstResponder()
+        }
+        hasAutoFocused = true
+    }
+}
+
+    override func viewWillDisappear(_ animated: Bool) {
+        super.viewWillDisappear(animated)
+        
+        // 強制關閉鍵盤，避免鍵盤在視圖關閉後仍然顯示
+        view.endEditing(true)
+        
+        // 確保所有文字欄位都失去焦點
+        activeTextField?.resignFirstResponder()
+        activeTextField = nil
+        
+        // 取消訂閱通知
+        NotificationCenter.default.removeObserver(self)
+    }
+
+    // MARK: - Keyboard Handling
+    @objc func keyboardWillShow(_ notification: Notification) {
+        keyboardIsVisible = true
+    }
+    
+    @objc func keyboardWillHide(_ notification: Notification) {
+        keyboardIsVisible = false
+    }
+    
+    private func setupKeyboardDismissGesture() {
+        let tapGesture = UITapGestureRecognizer(target: self, action: #selector(dismissKeyboard))
+        tapGesture.cancelsTouchesInView = false
+        view.addGestureRecognizer(tapGesture)
+    }
+    
+    @objc func dismissKeyboard() {
+        view.endEditing(true)
+    }
+    
+    /// 重新整理文字欄位的輸入視圖以強制系統重新評估是否應該顯示鍵盤
+    private func refreshTextFieldInputView() {
+        guard let activeField = activeTextField ?? buildingTextField else { return }
+        
+        // 暫時禁用輸入視圖
+        let originalInputView = activeField.inputView
+        activeField.inputView = UIView()
+        
+        // 重新啟用原來的輸入視圖
+        activeField.inputView = originalInputView
+        
+        // 強制更新
+        activeField.reloadInputViews()
+    }
+    
+    private func setupUI() {
        
         
         // 設定儲存按鈕 - 明亮的藍綠色
@@ -106,52 +271,57 @@ class EditDetailViewController: UIViewController {
         etagNumberTextField.text = currentEtagNumber
     }
     
-    private func setupTextFields() {
-    let textFields = [
-        buildingTextField,
-        householdTextField,
-        parkingNumberTextField,
-        carTypeTextField,
-        carNumberTextField,
-        etagNumberTextField
-    ]
+     private func setupTextFields() {
+        let textFields = [
+            buildingTextField,
+            householdTextField,
+            parkingNumberTextField,
+            carTypeTextField,
+            carNumberTextField,
+            etagNumberTextField
+        ]
+        
+        textFields.forEach { textField in
+            guard let textField = textField else { return }
+            
+            // 基本設定
+            textField.delegate = self
+            textField.backgroundColor = .white
+            textField.borderStyle = .roundedRect
+            textField.layer.cornerRadius = 8
+            textField.font = .systemFont(ofSize: 16)
+            textField.isEnabled = true
+            textField.isUserInteractionEnabled = true
+            textField.returnKeyType = .next
+            textField.layer.borderColor = UIColor.systemGray4.cgColor
+            textField.layer.borderWidth = 1
+            
+            // 套用鍵盤規則
+            textField.keyboardType = keyboardRules.keyboardType(for: textField)
+            textField.autocapitalizationType = keyboardRules.capitalizationType(for: textField)
+            
+            // 添加文字變更通知
+            textField.addTarget(self, action: #selector(textFieldDidChange(_:)), for: .editingChanged)
+        }
     
-    // 設定所有輸入框的基本樣式
-    textFields.forEach { textField in
-        textField?.delegate = self
-        textField?.backgroundColor = .white
-        textField?.borderStyle = .roundedRect
-        textField?.layer.cornerRadius = 8
-        textField?.font = .systemFont(ofSize: 16)
-        textField?.isEnabled = true
-        textField?.isUserInteractionEnabled = true
-        textField?.returnKeyType = .next
-        textField?.layer.borderColor = UIColor.systemGray4.cgColor
-        textField?.layer.borderWidth = 1
+            // 特殊設定
+            householdTextField.backgroundColor = UIColor(red: 240/255, green: 248/255, blue: 255/255, alpha: 1.0)
+            householdTextField.placeholder = "請輸入戶別（主要識別資訊）"
+    
+            etagNumberTextField.returnKeyType = .done
+            etagNumberTextField.isEnabled = false
+            etagNumberTextField.backgroundColor = UIColor.systemGray6
+    
+             // 為數字鍵盤添加工具列
+            let toolbar = UIToolbar()
+             toolbar.sizeToFit()
+            let doneButton = UIBarButtonItem(title: "完成", style: .done, target: self, action: #selector(doneButtonTapped))
+            let flexSpace = UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil)
+             toolbar.items = [flexSpace, doneButton]
+    
+           [householdTextField, parkingNumberTextField].forEach { textField in
+            textField?.inputAccessoryView = toolbar
     }
-    
-    // 特殊設定 - 醒目的戶別輸入框
-    householdTextField.backgroundColor = UIColor(red: 240/255, green: 248/255, blue: 255/255, alpha: 1.0)
-    householdTextField.placeholder = "請輸入戶別（主要識別資訊）"
-    
-    // 其他欄位設定
-    etagNumberTextField.returnKeyType = .done
-    etagNumberTextField.isEnabled = false  // 禁止直接編輯ETAG，只能通過掃描更新
-    etagNumberTextField.backgroundColor = UIColor.systemGray6
-    
-    carNumberTextField.autocapitalizationType = .allCharacters  // 自動轉大寫
-    carNumberTextField.keyboardType = .asciiCapable  // 英數鍵盤
-    carNumberTextField.placeholder = "請輸入車牌號碼"  // 提示文字
-    
-    parkingNumberTextField.keyboardType = .numberPad
-    
-    // 添加工具列（針對數字鍵盤）
-    let toolbar = UIToolbar()
-    toolbar.sizeToFit()
-    let doneButton = UIBarButtonItem(title: "完成", style: .done, target: self, action: #selector(doneButtonTapped))
-    let flexSpace = UIBarButtonItem(barButtonSystemItem: .flexibleSpace, target: nil, action: nil)
-    toolbar.items = [flexSpace, doneButton]
-    parkingNumberTextField.inputAccessoryView = toolbar
 }
     
     // 新增：處理數字鍵盤的完成按鈕
@@ -163,28 +333,23 @@ class EditDetailViewController: UIViewController {
          super.touchesBegan(touches, with: event)
     view.endEditing(true)  // 強制結束編輯狀態，收起鍵盤
 }
-    // 添加手勢識別器的動作方法
-    @objc private func dismissKeyboard() {
-    view.endEditing(true)  // 收起鍵盤
-}      
     
-
-     // MARK: - IBActions
+    // MARK: - IBActions
     @IBAction func saveButtonTapped(_ sender: Any) {
         // 驗證必填欄位
-        guard let carNumber = carNumberTextField.text, !carNumber.isEmpty else {
+        guard !currentCarNumber.isEmpty else {
             showAlert(message: "請輸入車牌號碼")
             return
         }
         
         // 通知代理更新資料
         delegate?.didUpdateDetails(
-            building: buildingTextField.text ?? "",
-            household: householdTextField.text ?? "",
-            parkingNumber: parkingNumberTextField.text ?? "",
-            carType: carTypeTextField.text ?? "",
-            carNumber: carNumber,
-            etagNumber: etagNumberTextField.text ?? "",
+            building: currentBuilding,
+            household: currentHousehold,
+            parkingNumber: currentParkingNumber,
+            carType: currentCarType,
+            carNumber: currentCarNumber,
+            etagNumber: currentEtagNumber,
             at: itemIndex
         )
         
@@ -200,42 +365,71 @@ class EditDetailViewController: UIViewController {
         alert.addAction(UIAlertAction(title: "確定", style: .default))
         present(alert, animated: true)
     }
-}
-   // MARK: - UITextFieldDelegate
-    extension EditDetailViewController: UITextFieldDelegate {
-         func textFieldShouldReturn(_ textField: UITextField) -> Bool {
-        switch textField {
-        case buildingTextField:
-            householdTextField.becomeFirstResponder()
-        case householdTextField:
-            parkingNumberTextField.becomeFirstResponder()
-        case parkingNumberTextField:
-            carTypeTextField.becomeFirstResponder()
-        case carTypeTextField:
-            carNumberTextField.becomeFirstResponder()
-        case carNumberTextField:
-            etagNumberTextField.becomeFirstResponder()
-        case etagNumberTextField:
-            textField.resignFirstResponder()  // 收起鍵盤
-        default:
-            textField.resignFirstResponder()  // 確保所有其他可能的輸入框也能收起鍵盤
+    
+    // MARK: - UITextFieldDelegate
+    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
+        return keyboardRules.shouldChangeCharacters(in: textField, range: range, string: string)
+    }
+
+    func textFieldShouldReturn(_ textField: UITextField) -> Bool {
+        if let nextField = keyboardRules.nextResponder(after: textField) {
+            nextField.becomeFirstResponder()
+        } else {
+            textField.resignFirstResponder()
         }
         return true
     }
+
+    func textFieldDidBeginEditing(_ textField: UITextField) {
+        customKeyboard.targetTextField = textField
+    }
     
-     // 新增：限制車位數量只能輸入數字
-    func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
-    if textField == parkingNumberTextField {  // 改為新的變數名稱
-        // 車位號碼只能輸入數字
-        let allowedCharacters = CharacterSet.decimalDigits
-        let characterSet = CharacterSet(charactersIn: string)
-        return allowedCharacters.isSuperset(of: characterSet)
-    } else if textField == carNumberTextField {
-        // 車牌號碼只能輸入英文和數字
-        let allowedCharacters = CharacterSet.alphanumerics
-        let characterSet = CharacterSet(charactersIn: string)
-        return allowedCharacters.isSuperset(of: characterSet) || string.isEmpty
+    func textFieldDidEndEditing(_ textField: UITextField) {
+        // 文字欄位編輯結束時更新相應的變數
+        textFieldDidChange(textField)
+        
+        // 清除目前活動的文字欄位記錄
+        if activeTextField == textField {
+            activeTextField = nil
+        }
     }
-    return true
+@objc func textFieldDidChange(_ textField: UITextField) {
+        switch textField {
+        case buildingTextField:
+            currentBuilding = textField.text ?? ""
+        case householdTextField:
+            currentHousehold = textField.text ?? ""
+        case parkingNumberTextField:
+            currentParkingNumber = textField.text ?? ""
+        case carTypeTextField:
+            currentCarType = textField.text ?? ""
+        case carNumberTextField:
+            currentCarNumber = textField.text ?? ""
+        case etagNumberTextField:
+            currentEtagNumber = textField.text ?? ""
+        default:
+            break
+        }
     }
+
+    private func ensureTextFieldIsFocused() {
+        if !buildingTextField.isFirstResponder {
+            buildingTextField.becomeFirstResponder()
+        }
     }
+
+    @objc func applicationWillEnterForeground() {
+        ensureTextFieldIsFocused()
+    }
+
+    private func startFocusCheck() {
+        Timer.scheduledTimer(withTimeInterval: 1.0, repeats: true) { [weak self] _ in
+            self?.ensureTextFieldIsFocused()
+        }
+    }
+
+}
+    
+
+
+ 

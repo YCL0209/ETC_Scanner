@@ -12,7 +12,7 @@
         <!--View Controller-->
         <scene sceneID="tne-QT-ifu">
             <objects>
-                <viewController id="BYZ-38-t0r" customClass="ViewController" customModule="HID_mode_test1" customModuleProvider="target" sceneMemberID="viewController">
+                <viewController id="BYZ-38-t0r" customClass="ViewController" customModule="ETC_Scanner" customModuleProvider="target" sceneMemberID="viewController">
                     <view key="view" contentMode="scaleToFill" id="9Dz-WV-Prp" userLabel="按鈕容器">
                         <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
@@ -31,10 +31,10 @@
                                 <color key="backgroundColor" systemColor="systemBackgroundColor"/>
                                 <color key="sectionIndexBackgroundColor" systemColor="systemGray5Color"/>
                                 <prototypes>
-                                    <tableViewCell clipsSubviews="YES" contentMode="scaleToFill" insetsLayoutMarginsFromSafeArea="NO" selectionStyle="blue" hidesAccessoryWhenEditing="NO" indentationLevel="1" indentationWidth="0.0" reuseIdentifier="BarcodeCell" rowHeight="125" id="Ohb-ny-rGe" userLabel="ScanItemCell" customClass="ScanItemCell" customModule="HID_mode_test1" customModuleProvider="target">
+                                    <tableViewCell clipsSubviews="YES" contentMode="scaleToFill" insetsLayoutMarginsFromSafeArea="NO" selectionStyle="blue" hidesAccessoryWhenEditing="NO" indentationLevel="1" indentationWidth="0.0" reuseIdentifier="BarcodeCell" rowHeight="125" id="Ohb-ny-rGe" userLabel="ScanItemCell" customClass="ScanItemCell" customModule="ETC_Scanner" customModuleProvider="target">
                                         <rect key="frame" x="0.0" y="50" width="393" height="125"/>
                                         <autoresizingMask key="autoresizingMask"/>
-                                        <tableViewCellContentView key="contentView" opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="center" insetsLayoutMarginsFromSafeArea="NO" tableViewCell="Ohb-ny-rGe" id="6DG-pG-VF5" customClass="ScanItemCell" customModule="HID_mode_test1" customModuleProvider="target">
+                                        <tableViewCellContentView key="contentView" opaque="NO" clipsSubviews="YES" multipleTouchEnabled="YES" contentMode="center" insetsLayoutMarginsFromSafeArea="NO" tableViewCell="Ohb-ny-rGe" id="6DG-pG-VF5" customClass="ScanItemCell" customModule="ETC_Scanner" customModuleProvider="target">
                                             <rect key="frame" x="0.0" y="0.0" width="393" height="125"/>
                                             <autoresizingMask key="autoresizingMask"/>
                                         </tableViewCellContentView>
@@ -49,18 +49,6 @@
                                     <outlet property="delegate" destination="BYZ-38-t0r" id="llF-8p-1R2"/>
                                 </connections>
                             </tableView>
-                            <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" adjustsImageWhenHighlighted="NO" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="9ho-w4-aQv" userLabel="importButton">
-                                <rect key="frame" x="22" y="184" width="70" height="40"/>
-                                <constraints>
-                                    <constraint firstAttribute="width" constant="70" id="Kri-Np-vey"/>
-                                    <constraint firstAttribute="height" constant="40" id="kLk-g3-QTT"/>
-                                </constraints>
-                                <state key="normal" title="Button"/>
-                                <buttonConfiguration key="configuration" style="plain"/>
-                                <connections>
-                                    <action selector="importButtonTapped:" destination="BYZ-38-t0r" eventType="touchUpInside" id="gEU-dA-YkK"/>
-                                </connections>
-                            </button>
                             <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" adjustsImageWhenHighlighted="NO" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="4aT-1z-xfl" userLabel="exportButton">
                                 <rect key="frame" x="209" y="184" width="70" height="40"/>
                                 <constraints>
@@ -71,6 +59,18 @@
                                 <buttonConfiguration key="configuration" style="plain"/>
                                 <connections>
                                     <action selector="exportButtonTapped:" destination="BYZ-38-t0r" eventType="touchUpInside" id="NB7-IF-Lkf"/>
+                                </connections>
+                            </button>
+                            <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" adjustsImageWhenHighlighted="NO" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="9ho-w4-aQv" userLabel="importButton">
+                                <rect key="frame" x="22" y="184" width="70" height="40"/>
+                                <constraints>
+                                    <constraint firstAttribute="width" constant="70" id="Kri-Np-vey"/>
+                                    <constraint firstAttribute="height" constant="40" id="kLk-g3-QTT"/>
+                                </constraints>
+                                <state key="normal" title="Button"/>
+                                <buttonConfiguration key="configuration" style="plain"/>
+                                <connections>
+                                    <action selector="importButtonTapped:" destination="BYZ-38-t0r" eventType="touchUpInside" id="gEU-dA-YkK"/>
                                 </connections>
                             </button>
                             <button opaque="NO" contentMode="scaleToFill" contentHorizontalAlignment="center" contentVerticalAlignment="center" buttonType="system" adjustsImageWhenHighlighted="NO" lineBreakMode="middleTruncation" translatesAutoresizingMaskIntoConstraints="NO" id="9tU-Ef-FZQ" userLabel="deleteButton">
@@ -85,7 +85,7 @@
                                     <action selector="deleteButtonTapped:" destination="BYZ-38-t0r" eventType="touchUpInside" id="4cy-NF-wWn"/>
                                 </connections>
                             </button>
-                            <label opaque="NO" userInteractionEnabled="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="等待掃描．．．" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="UaV-Am-ZZ2" userLabel="scanTextLabel">
+                            <label opaque="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="等待掃描．．．" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="UaV-Am-ZZ2" userLabel="scanTextLabel">
                                 <rect key="frame" x="87" y="114" width="267" height="35"/>
                                 <constraints>
                                     <constraint firstAttribute="width" constant="267" id="JNX-wN-tuW"/>
@@ -141,7 +141,7 @@
         <!--Edit Detail View Controller-->
         <scene sceneID="j2s-zZ-jet">
             <objects>
-                <viewController storyboardIdentifier="EditDetailViewController" id="IxC-pC-1FR" customClass="EditDetailViewController" customModule="HID_mode_test1" sceneMemberID="viewController">
+                <viewController storyboardIdentifier="EditDetailViewController" id="IxC-pC-1FR" customClass="EditDetailViewController" customModule="ETC_Scanner" sceneMemberID="viewController">
                     <view key="view" contentMode="scaleToFill" id="wla-jW-geQ">
                         <rect key="frame" x="0.0" y="0.0" width="393" height="852"/>
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
@@ -347,13 +347,13 @@
             <color white="1" alpha="1" colorSpace="custom" customColorSpace="genericGamma22GrayColorSpace"/>
         </systemColor>
         <systemColor name="systemGray4Color">
-            <color red="0.81960784310000001" green="0.81960784310000001" blue="0.83921568629999999" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+            <color red="0.81960784313725488" green="0.81960784313725488" blue="0.83921568627450982" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </systemColor>
         <systemColor name="systemGray5Color">
-            <color red="0.8980392157" green="0.8980392157" blue="0.91764705879999997" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+            <color red="0.89803921568627454" green="0.89803921568627454" blue="0.91764705882352937" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </systemColor>
         <systemColor name="systemTealColor">
-            <color red="0.18823529410000001" green="0.69019607839999997" blue="0.78039215689999997" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
+            <color red="0.18823529411764706" green="0.69019607843137254" blue="0.7803921568627451" alpha="1" colorSpace="custom" customColorSpace="sRGB"/>
         </systemColor>
     </resources>
 </document>
