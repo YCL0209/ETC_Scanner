@@ -412,11 +412,29 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
         imageView.isHidden = false
         imageView.alpha = 1.0
         
+        // 添加自動佈局約束
+        imageView.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            imageView.topAnchor.constraint(equalTo: topBackgroundImage?.bottomAnchor ?? view.safeAreaLayoutGuide.topAnchor, constant: -30),
+            imageView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
+            imageView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
+            imageView.heightAnchor.constraint(equalToConstant: 50)
+        ])
+        
         // 設置掃描文字標籤
         textLabel.text = "等待掃描..."
         textLabel.textColor = .darkGray
         textLabel.backgroundColor = .clear  // 透明背景
         textLabel.textAlignment = .center
+        
+        // 添加標籤的自動佈局約束
+        textLabel.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            textLabel.centerXAnchor.constraint(equalTo: imageView.centerXAnchor),
+            textLabel.centerYAnchor.constraint(equalTo: imageView.centerYAnchor),
+            textLabel.widthAnchor.constraint(lessThanOrEqualTo: imageView.widthAnchor, constant: -20),
+            textLabel.heightAnchor.constraint(equalToConstant: 35)
+        ])
     }
     //頂部圖片
     private func setupTopBackground() {
@@ -426,6 +444,15 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
         }
         topImage.contentMode = .scaleAspectFill
         topImage.clipsToBounds = true
+        
+        // 添加自動佈局約束
+        topImage.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            topImage.topAnchor.constraint(equalTo: view.topAnchor),
+            topImage.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+            topImage.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+            topImage.heightAnchor.constraint(equalTo: view.heightAnchor, multiplier: 0.15) // 高度為視圖高度的15%
+        ])
     }
     //狀態
     private func setupStatusArea() {
@@ -436,6 +463,14 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
         status.text = "待機中"
         status.textColor = .white
         status.font = .systemFont(ofSize: 14)
+        
+        // 添加自動佈局約束
+        status.translatesAutoresizingMaskIntoConstraints = false
+        NSLayoutConstraint.activate([
+            status.topAnchor.constraint(equalTo: view.safeAreaLayoutGuide.topAnchor, constant: 10),
+            status.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            status.heightAnchor.constraint(equalToConstant: 20)
+        ])
     }
     
     //按鈕
@@ -448,19 +483,11 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
             return
         }
         
-        // 設定共用的按鈕大小和樣式
-        let buttonSize = CGSize(width: 70, height: 40)
+        // 統一設定所有按鈕的基本屬性
         let buttons = [all, export, delete, search]
         
         // 統一設定所有按鈕的基本屬性
         buttons.forEach { button in
-            // 設定大小約束
-            button.translatesAutoresizingMaskIntoConstraints = false
-            NSLayoutConstraint.activate([
-                button.widthAnchor.constraint(equalToConstant: buttonSize.width),
-                button.heightAnchor.constraint(equalToConstant: buttonSize.height)
-            ])
-            
             // 基本樣式設定
             button.backgroundColor = UIColor(red: 135/255, green: 206/255, blue: 235/255, alpha: 1.0)
             button.setTitleColor(.white, for: .normal)
@@ -473,6 +500,9 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
             button.addTarget(self, action: #selector(buttonTouchUpInside(_:)), for: .touchUpInside)
             button.addTarget(self, action: #selector(buttonTouchUpOutside(_:)), for: .touchUpOutside)
             button.addTarget(self, action: #selector(buttonTouchDragExit(_:)), for: .touchDragExit)
+            
+            // 啟用自動佈局
+            button.translatesAutoresizingMaskIntoConstraints = false
         }
         
         // 設定按鈕文字
@@ -483,6 +513,37 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
         
         // 刪除按鈕使用紅色背景
         delete.backgroundColor = UIColor(red: 220/255, green: 53/255, blue: 69/255, alpha: 1.0)
+        
+        // 使用自動佈局約束來排列按鈕
+        let buttonHeight: CGFloat = 40
+        let buttonSpacing: CGFloat = (view.frame.width - 40 - 70 * 4) / 3 // 計算按鈕間距
+        
+        NSLayoutConstraint.activate([
+            // 匯入按鈕
+            all.topAnchor.constraint(equalTo: scannerImageView?.bottomAnchor ?? view.safeAreaLayoutGuide.topAnchor, constant: 28),
+            all.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            all.heightAnchor.constraint(equalToConstant: buttonHeight),
+            all.widthAnchor.constraint(equalToConstant: 70),
+            
+            // 搜尋按鈕
+            search.topAnchor.constraint(equalTo: all.topAnchor),
+            search.leadingAnchor.constraint(equalTo: all.trailingAnchor, constant: buttonSpacing),
+            search.heightAnchor.constraint(equalToConstant: buttonHeight),
+            search.widthAnchor.constraint(equalToConstant: 70),
+            
+            // 匯出按鈕
+            export.topAnchor.constraint(equalTo: all.topAnchor),
+            export.leadingAnchor.constraint(equalTo: search.trailingAnchor, constant: buttonSpacing),
+            export.heightAnchor.constraint(equalToConstant: buttonHeight),
+            export.widthAnchor.constraint(equalToConstant: 70),
+            
+            // 刪除按鈕
+            delete.topAnchor.constraint(equalTo: all.topAnchor),
+            delete.leadingAnchor.constraint(equalTo: export.trailingAnchor, constant: buttonSpacing),
+            delete.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            delete.heightAnchor.constraint(equalToConstant: buttonHeight),
+            delete.widthAnchor.constraint(equalToConstant: 70)
+        ])
     }
     
     // MARK: - Button Actions
@@ -644,6 +705,15 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     // 確保 TableView 可見
     table.isHidden = false
     table.alpha = 1.0
+    
+    // 添加自動佈局約束
+    table.translatesAutoresizingMaskIntoConstraints = false
+    NSLayoutConstraint.activate([
+        table.topAnchor.constraint(equalTo: importButton?.bottomAnchor ?? view.safeAreaLayoutGuide.topAnchor, constant: 20),
+        table.leadingAnchor.constraint(equalTo: view.leadingAnchor),
+        table.trailingAnchor.constraint(equalTo: view.trailingAnchor),
+        table.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
+    ])
     
     print("TableView 設置完成")
 }
