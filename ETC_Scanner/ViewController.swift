@@ -3,7 +3,7 @@
 //  ETC_Scanner
 //
 //  Created by 廖亞丞 on 2025/2/16.
-//
+// 1.0.1版
 
 import UIKit
 import CoreBluetooth
