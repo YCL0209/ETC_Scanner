@@ -63,7 +63,8 @@ struct ServerResponse: Codable {
 class NetworkManager {
     static let shared = NetworkManager()
     
-    private var _serverURL: String = "http://192.168.0.6:5000"
+    // 修改預設伺服器 URL 為新的 API 網址
+    private var _serverURL: String = "https://sui-yao.com"
     private var serverURL: String {
         get {
             return UserDefaults.standard.string(forKey: "serverURL") ?? _serverURL
@@ -73,22 +74,34 @@ class NetworkManager {
         }
     }
     
+    // 添加 API 金鑰
+    private var _apiKey: String = "MasHsieh0817"
+    var apiKey: String {
+        get {
+            return UserDefaults.standard.string(forKey: "apiKey") ?? _apiKey
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "apiKey")
+        }
+    }
+    
     private var fileName: String = "住戶ETC資料.csv" // 預設檔案名稱
     private let adminPassword = "123456" // 設定管理員密碼
     
     private init() {}
 
-    // 新增檢查伺服器狀態的方法
-   func checkServerStatus(completion: @escaping (Bool, String?) -> Void) {
-    // 確保 URL 格式正確，移除尾部斜線
-    let baseURL = serverURL.hasSuffix("/") ? String(serverURL.dropLast()) : serverURL
-    
-    guard let url = URL(string: "\(baseURL)/api/server/info") else {
-        completion(false, "無效的伺服器網址")
-        return
-    }
+    // 修改檢查伺服器狀態的方法
+    func checkServerStatus(completion: @escaping (Bool, String?) -> Void) {
+        // 確保 URL 格式正確，移除尾部斜線
+        let baseURL = getBaseURL()
         
-        let request = URLRequest(url: url, timeoutInterval: 15) // 增加逾時時間到 15 秒
+        guard let url = URL(string: "\(baseURL)/api/status") else {
+            completion(false, "無效的伺服器網址")
+            return
+        }
+            
+        var request = URLRequest(url: url, timeoutInterval: 15) // 增加逾時時間到 15 秒
+        request.setValue(apiKey, forHTTPHeaderField: "x-api-key") // 添加 API 金鑰
         
         let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
             if let error = error {
@@ -115,13 +128,20 @@ class NetworkManager {
         return fileName
     }
     
-    func updateSettings(newURL: String, newFileName: String, password: String) -> Bool {
+    // 更新設定方法
+    func updateSettings(newURL: String, newFileName: String, newAPIKey: String = "", password: String) -> Bool {
         guard password == adminPassword else {
             return false
         }
         serverURL = newURL  // 這會自動儲存到 UserDefaults 中
         fileName = newFileName
         UserDefaults.standard.set(newFileName, forKey: "fileName")
+        
+        // 如果提供了新的 API 金鑰，則更新
+        if !newAPIKey.isEmpty {
+            apiKey = newAPIKey
+        }
+        
         return true
     }
     func downloadCSV(fileName: String, completion: @escaping (Result<Data, Error>) -> Void) {
@@ -132,27 +152,9 @@ class NetworkManager {
         
         print("下載檔案 URL: \(url.absoluteString)")
         
-        // 確保 URL 格式正確
-        let baseURL = serverURL.hasSuffix("/") ? String(serverURL.dropLast()) : serverURL
-        
-        // 確保檔案名正確編碼
-        guard let encodedFileName = fileName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
-            print("檔案名編碼失敗: \(fileName)")
-            completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "檔案名編碼失敗"])))
-            return
-        }
-        
-        let urlString = "\(baseURL)/api/file/download?fileName=\(encodedFileName)"
-        print("下載檔案 URL: \(urlString)")
-        
-        guard let url = URL(string: urlString) else {
-            print("構建下載 URL 失敗")
-            completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "無效的URL"])))
-            return
-        }
-        
         var request = URLRequest(url: url)
         request.setValue("application/octet-stream", forHTTPHeaderField: "Accept")
+        request.setValue(apiKey, forHTTPHeaderField: "x-api-key") // 添加 API 金鑰
         
         let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
             if let error = error {
@@ -208,6 +210,7 @@ class NetworkManager {
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+        request.setValue(apiKey, forHTTPHeaderField: "x-api-key") // 添加 API 金鑰
         
         // 3. 建立 multipart/form-data 內容
         var data = Data()
@@ -271,6 +274,7 @@ class NetworkManager {
         // 添加額外的請求頭，確保接收 JSON
         var request = URLRequest(url: url)
         request.setValue("application/json", forHTTPHeaderField: "Accept")
+        request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
         
         let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
             if let error = error {
@@ -294,6 +298,7 @@ class NetworkManager {
                 print("原始回應: \(responseString)")
             }
             
+            // 先嘗試使用 JSONDecoder 解析
             do {
                 let response = try JSONDecoder().decode(ServerResponse.self, from: data)
                 print("解析成功，檔案數量: \(response.files.count)")
@@ -306,8 +311,35 @@ class NetworkManager {
                 
                 completion(.success(response.files))
             } catch {
-                print("JSON 解析錯誤: \(error)")
-                completion(.failure(error))
+                print("JSONDecoder 解析錯誤，嘗試手動解析: \(error)")
+                
+                // 如果使用 JSONDecoder 失敗，嘗試手動解析
+                do {
+                    if let jsonDict = try JSONSerialization.jsonObject(with: data) as? [String: Any],
+                       let success = jsonDict["success"] as? Bool,
+                       let filesArray = jsonDict["files"] as? [[String: Any]] {
+                        
+                        // 手動將字典轉換為 FileInfo 物件
+                        let fileInfos = filesArray.compactMap { fileDict -> FileInfo? in
+                            guard let fileName = fileDict["fileName"] as? String,
+                                  let size = fileDict["size"] as? Int,
+                                  let uploadTime = fileDict["uploadTime"] as? String else {
+                                return nil
+                            }
+                            
+                            return FileInfo(fileName: fileName, size: size, uploadTime: uploadTime)
+                        }
+                        
+                        print("手動解析成功，檔案數量: \(fileInfos.count)")
+                        completion(.success(fileInfos))
+                    } else {
+                        print("手動解析失敗，無法識別回應格式")
+                        completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "無法識別的回應格式"])))
+                    }
+                } catch {
+                    print("手動解析也失敗: \(error)")
+                    completion(.failure(error))
+                }
             }
         }
         
@@ -1538,19 +1570,15 @@ private func exportCSVForBuilding(_ building: Building) {
 
 // 使用非常簡單明確的上傳方法，專注於檔案名稱問題
 private func uploadWithSimpleFileName(content: String, fileName: String, for building: Building) {
-
     print("===== 開始上傳檔案 \(fileName) =====")
     print("內容大小：\(content.count) 字符")
 
     showLoadingAlert(message: "正在上傳中...")
     
-    // 確保檔名不含可能導致問題的字符
-    let safeFileName = fileName
-        .replacingOccurrences(of: " ", with: "_")
-        .replacingOccurrences(of: "#", with: "")
-        .replacingOccurrences(of: "住戶ETC資料", with: "ETC_Data")
+    // 使用原始中文檔名
+    let originalFileName = "ETC\(building.filenameSuffix)棟資料.csv"
     
-    print("處理後的安全檔名: \(safeFileName)")
+    print("使用原始檔名: \(originalFileName)")
     
     // 使用 NetworkManager 的方法獲取 URL
     guard let url = NetworkManager.shared.getUploadURL() else {
@@ -1559,28 +1587,33 @@ private func uploadWithSimpleFileName(content: String, fileName: String, for bui
         return
     }
     
-    // 使用固定的 URL
+    // 建立正確的 multipart/form-data 請求
     let boundary = "Boundary-\(UUID().uuidString)"
     var request = URLRequest(url: url)
     
     request.httpMethod = "POST"
     request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+    request.setValue(NetworkManager.shared.apiKey, forHTTPHeaderField: "x-api-key")
     
+    // 正確處理檔名編碼 - RFC 2231 和 RFC 5987 規範
+    let filenameEncoded = originalFileName
+        .addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? originalFileName
+    
+    // 建立正確格式的 multipart/form-data 內容
     var data = Data()
-    data.append("\r\n--\(boundary)\r\n".data(using: .utf8)!)
-    data.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(safeFileName)\"\r\n".data(using: .utf8)!)
+    data.append("--\(boundary)\r\n".data(using: .utf8)!)
+    data.append("Content-Disposition: form-data; name=\"file\"; filename=\"ETC_\(building.filenameSuffix)_Data.csv\"\r\n".data(using: .utf8)!)
     data.append("Content-Type: text/csv\r\n\r\n".data(using: .utf8)!)
-    
-    // 檢查內容並上傳
-    if content.count > 0 {
-        data.append(content.data(using: .utf8)!)
-    } else {
-        // 提供一個默認內容，避免空檔案
-        let defaultContent = "序號,棟別,戶別,所有權人,承租人,電話,車位號碼,車種,車牌,ETAG\n1,測試數據,請檢查原始數據,,,,,,,\n"
-        data.append(defaultContent.data(using: .utf8)!)
-    }
-    
-    data.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+    data.append(content.data(using: .utf8)!)
+    data.append("\r\n".data(using: .utf8)!)
+
+    // 添加一個額外的欄位表示原始檔名（如果伺服器 API 支援）
+    data.append("--\(boundary)\r\n".data(using: .utf8)!)
+    data.append("Content-Disposition: form-data; name=\"originalFilename\"\r\n\r\n".data(using: .utf8)!)
+    data.append("ETC\(building.filenameSuffix)棟資料.csv".data(using: .utf8)!)
+    data.append("\r\n".data(using: .utf8)!)
+
+    data.append("--\(boundary)--\r\n".data(using: .utf8)!)
     
     // 執行上傳任務
     let task = URLSession.shared.uploadTask(with: request, from: data) { [weak self] responseData, response, error in
@@ -1599,11 +1632,23 @@ private func uploadWithSimpleFileName(content: String, fileName: String, for bui
                 // 嘗試解析伺服器回應
                 if let responseData = responseData, let responseString = String(data: responseData, encoding: .utf8) {
                     print("伺服器回應: \(responseString)")
+                    
+                    // 嘗試解析回應以獲取服務器生成的檔名
+                    do {
+                        if let jsonResponse = try JSONSerialization.jsonObject(with: responseData) as? [String: Any],
+                           let serverFileName = jsonResponse["fileName"] as? String {
+                            // 顯示伺服器生成的檔名
+                            self.showAlert(title: "上傳成功", message: "\(building.rawValue)的資料已成功上傳到伺服器\n伺服器檔名: \(serverFileName)")
+                            return
+                        }
+                    } catch {
+                        print("無法解析伺服器回應的 JSON: \(error)")
+                    }
                 }
                 
                 let success = (200...299).contains(httpResponse.statusCode)
                 if success {
-                    self.showAlert(title: "成功", message: "\(building.rawValue)的資料已成功上傳到伺服器")
+                    self.showAlert(title: "上傳成功", message: "\(building.rawValue)的資料已成功上傳到伺服器")
                 } else {
                     self.showAlert(title: "錯誤", message: "上傳失敗：伺服器回應代碼 \(httpResponse.statusCode)")
                 }
@@ -1621,9 +1666,8 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
     // 準備上傳請求
     let boundary = "Boundary-\(UUID().uuidString)"
     
-    // 使用與測試應用相同的硬編碼URL進行測試
-    let urlString = "http://192.168.0.6:5000/api/file/upload"
-    guard let url = URL(string: urlString) else {
+    // 使用 NetworkManager 的方法獲取 URL
+    guard let url = NetworkManager.shared.getUploadURL() else {
         completion(false, NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "無效的URL"]))
         return
     }
@@ -1631,6 +1675,8 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
     var request = URLRequest(url: url)
     request.httpMethod = "POST"
     request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+    // 添加 API 金鑰認證
+    request.setValue(NetworkManager.shared.apiKey, forHTTPHeaderField: "x-api-key")
     
     // 創建 multipart/form-data 內容
     var data = Data()
@@ -1683,16 +1729,24 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
     
     // 新增顯示設定伺服器的彈出視窗方法
     private func showServerSettingsAlert() {
-         let alert = UIAlertController(title: "伺服器設定", message: "請輸入新的網址和管理員密碼", preferredStyle: .alert)
+         let alert = UIAlertController(title: "Sui-Yao API 設定", message: "請輸入伺服器資訊和管理員密碼", preferredStyle: .alert)
     
     alert.addTextField { textField in
-        textField.placeholder = "新網址"
+        textField.placeholder = "伺服器網址 (如 https://sui-yao.com)"
         textField.keyboardType = .URL
         textField.autocorrectionType = .no
         textField.autocapitalizationType = .none
     }
+    
     alert.addTextField { textField in
-        textField.placeholder = "住戶ETC資料.csv"
+        textField.placeholder = "API 金鑰"
+        textField.text = NetworkManager.shared.apiKey
+        textField.autocorrectionType = .no
+        textField.autocapitalizationType = .none
+    }
+    
+    alert.addTextField { textField in
+        textField.placeholder = "檔案名稱"
         textField.text = NetworkManager.shared.getFileName()
         textField.autocorrectionType = .no
         textField.autocapitalizationType = .none
@@ -1705,10 +1759,11 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
     
     let confirmAction = UIAlertAction(title: "確認", style: .default) { [weak self] _ in
         guard let newURL = alert.textFields?[0].text,
-              let fileName = alert.textFields?[1].text,
-              let password = alert.textFields?[2].text else { return }
+              let apiKey = alert.textFields?[1].text,
+              let fileName = alert.textFields?[2].text,
+              let password = alert.textFields?[3].text else { return }
         
-        if NetworkManager.shared.updateSettings(newURL: newURL, newFileName: fileName, password: password) {
+        if NetworkManager.shared.updateSettings(newURL: newURL, newFileName: fileName, newAPIKey: apiKey, password: password) {
             self?.showAlert(title: "成功", message: "伺服器設定已更新")
         } else {
             self?.showAlert(title: "錯誤", message: "密碼錯誤")
@@ -1961,7 +2016,7 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
     // 每次都顯示說明，不檢查是否首次啟動
     let alert = UIAlertController(
         title: "使用說明",
-        message: "1. APP使用前需先接上HID設備，編輯功能才能正常使用。\n\n2. 需要與主機連接相同WiFi，匯入匯出功能才能正常使用。",
+        message: "1. APP使用前需先接上HID設備，編輯功能才能正常使用。\n\n2. 網路功能使用Sui-Yao API，請確保網路正常並設定正確的API金鑰。\n\n3. 如需更改API設定，請長按匯出按鈕進入設定頁面。",
         preferredStyle: .alert
     )
     
@@ -2034,9 +2089,18 @@ private func testFixedContentUpload() {
 private func uploadTestFile(_ fileURL: URL) {
     // 準備上傳請求
     let boundary = "Boundary-\(UUID().uuidString)"
-    var request = URLRequest(url: URL(string: "http://192.168.0.6:5000/api/file/upload")!)
+    
+    // 使用 NetworkManager 的方法獲取 URL
+    guard let url = NetworkManager.shared.getUploadURL() else {
+        showAlert(title: "測試上傳失敗", message: "無效的上傳 URL")
+        return
+    }
+    
+    var request = URLRequest(url: url)
     request.httpMethod = "POST"
     request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+    // 添加 API 金鑰認證
+    request.setValue(NetworkManager.shared.apiKey, forHTTPHeaderField: "x-api-key")
     
     // 創建 multipart/form-data 內容
     var data = Data()
