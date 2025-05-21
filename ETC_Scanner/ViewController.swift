@@ -1556,7 +1556,7 @@ private func showBuildingSelectionAlert(_ sender: UIButton) {
 private func exportCSVForBuilding(_ building: Building) {
     // 不再需要加入時間戳，伺服器會自動加上
     // 直接使用簡單的檔名
-    let fileName = "ETC\(building.filenameSuffix)棟資料.csv"
+    let fileName = "ETC_\(building.filenameSuffix)棟資料.csv"
     
     // 記錄最終使用的檔案名稱
     print("最終使用的檔案名稱: \(fileName)")
@@ -1576,7 +1576,7 @@ private func uploadWithSimpleFileName(content: String, fileName: String, for bui
     showLoadingAlert(message: "正在上傳中...")
     
     // 使用原始中文檔名
-    let originalFileName = "ETC\(building.filenameSuffix)棟資料.csv"
+    let originalFileName = "ETC_\(building.filenameSuffix)棟資料.csv"
     
     print("使用原始檔名: \(originalFileName)")
     
@@ -1602,7 +1602,7 @@ private func uploadWithSimpleFileName(content: String, fileName: String, for bui
     // 建立正確格式的 multipart/form-data 內容
     var data = Data()
     data.append("--\(boundary)\r\n".data(using: .utf8)!)
-    data.append("Content-Disposition: form-data; name=\"file\"; filename=\"ETC_\(building.filenameSuffix)_Data.csv\"\r\n".data(using: .utf8)!)
+    data.append("Content-Disposition: form-data; name=\"file\"; filename=\"ETC_\(building.filenameSuffix)棟資料.csv\"\r\n".data(using: .utf8)!)
     data.append("Content-Type: text/csv\r\n\r\n".data(using: .utf8)!)
     data.append(content.data(using: .utf8)!)
     data.append("\r\n".data(using: .utf8)!)
@@ -1610,7 +1610,7 @@ private func uploadWithSimpleFileName(content: String, fileName: String, for bui
     // 添加一個額外的欄位表示原始檔名（如果伺服器 API 支援）
     data.append("--\(boundary)\r\n".data(using: .utf8)!)
     data.append("Content-Disposition: form-data; name=\"originalFilename\"\r\n\r\n".data(using: .utf8)!)
-    data.append("ETC\(building.filenameSuffix)棟資料.csv".data(using: .utf8)!)
+    data.append("ETC_\(building.filenameSuffix)棟資料.csv".data(using: .utf8)!)
     data.append("\r\n".data(using: .utf8)!)
 
     data.append("--\(boundary)--\r\n".data(using: .utf8)!)
@@ -1855,20 +1855,24 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
                     let dateFormatter = DateFormatter()
                     dateFormatter.dateFormat = "yyyy/MM/dd HH:mm:ss"
                     let timeString = dateFormatter.string(from: Date())
+                    
+                    // 檢查是否有ETC條碼（第10列，索引為9）
+                    let hasETCCode = columns.count > 9 && !columns[9].isEmpty
+                    
                     let newItem = ScanItem(
-                    code: columns[0],  // 序號
-                    time: timeString,
-                    building: columns.count > 1 ? columns[1] : nil,      // 棟別
-                    household: columns.count > 2 ? columns[2] : nil,     // 戶別
-                    parkingNumber: columns.count > 6 ? columns[6] : nil, // 車位號碼
-                    carType: columns.count > 7 ? columns[7] : nil,       // 車種
-                    carNumber: columns.count > 8 ? columns[8] : nil,     // 車牌
-                    etagNumber: columns.count > 9 ? columns[9] : nil,    // ETAG
-                    isEdited: false,
-                    isSelected: false,
-                    owner: columns.count > 3 ? columns[3] : nil,         // 所有權人
-                    tenant: columns.count > 4 ? columns[4] : nil,        // 承租人
-                    phone: columns.count > 5 ? columns[5] : nil          // 電話
+                        code: columns[0],  // 序號
+                        time: timeString,
+                        building: columns.count > 1 ? columns[1] : nil,      // 棟別
+                        household: columns.count > 2 ? columns[2] : nil,     // 戶別
+                        parkingNumber: columns.count > 6 ? columns[6] : nil, // 車位號碼
+                        carType: columns.count > 7 ? columns[7] : nil,       // 車種
+                        carNumber: columns.count > 8 ? columns[8] : nil,     // 車牌
+                        etagNumber: columns.count > 9 ? columns[9] : nil,    // ETAG
+                        isEdited: hasETCCode,  // 如果有ETC條碼，則標記為已編輯
+                        isSelected: false,
+                        owner: columns.count > 3 ? columns[3] : nil,         // 所有權人
+                        tenant: columns.count > 4 ? columns[4] : nil,        // 承租人
+                        phone: columns.count > 5 ? columns[5] : nil          // 電話
                     )
                     
                     newItems.append(newItem)
