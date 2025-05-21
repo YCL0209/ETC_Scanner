@@ -1622,7 +1622,7 @@ private func uploadWithSimpleFileName(content: String, fileName: String, for bui
             self.dismissLoadingAlert()
             
             if let error = error {
-                self.showAlert(title: "上傳失敗", message: error.localizedDescription)
+                self.showUploadResultAlert(success: false, message: error.localizedDescription)
                 return
             }
             
@@ -1632,33 +1632,64 @@ private func uploadWithSimpleFileName(content: String, fileName: String, for bui
                 // 嘗試解析伺服器回應
                 if let responseData = responseData, let responseString = String(data: responseData, encoding: .utf8) {
                     print("伺服器回應: \(responseString)")
-                    
-                    // 嘗試解析回應以獲取服務器生成的檔名
-                    do {
-                        if let jsonResponse = try JSONSerialization.jsonObject(with: responseData) as? [String: Any],
-                           let serverFileName = jsonResponse["fileName"] as? String {
-                            // 顯示伺服器生成的檔名
-                            self.showAlert(title: "上傳成功", message: "\(building.rawValue)的資料已成功上傳到伺服器\n伺服器檔名: \(serverFileName)")
-                            return
-                        }
-                    } catch {
-                        print("無法解析伺服器回應的 JSON: \(error)")
-                    }
                 }
                 
                 let success = (200...299).contains(httpResponse.statusCode)
                 if success {
-                    self.showAlert(title: "上傳成功", message: "\(building.rawValue)的資料已成功上傳到伺服器")
+                    // 使用新的方法顯示上傳成功提示
+                    self.showUploadResultAlert(success: true, message: "\(building.rawValue)的資料已成功上傳到伺服器")
                 } else {
-                    self.showAlert(title: "錯誤", message: "上傳失敗：伺服器回應代碼 \(httpResponse.statusCode)")
+                    self.showUploadResultAlert(success: false, message: "伺服器回應代碼 \(httpResponse.statusCode)")
                 }
             } else {
-                self.showAlert(title: "錯誤", message: "無法獲取HTTP回應")
+                self.showUploadResultAlert(success: false, message: "無法獲取HTTP回應")
             }
         }
     }
     
     task.resume()
+}
+
+// 新增一個專門用於顯示上傳結果的提示框方法
+private func showUploadResultAlert(success: Bool, message: String) {
+    // 確保在主線程執行
+    DispatchQueue.main.async { [weak self] in
+        guard let self = self else { return }
+        
+        // 先關閉任何可能正在顯示的警告框
+        if let presentedVC = self.presentedViewController {
+            presentedVC.dismiss(animated: false) {
+                self.showUploadResultAlertImpl(success: success, message: message)
+            }
+        } else {
+            self.showUploadResultAlertImpl(success: success, message: message)
+        }
+    }
+}
+
+private func showUploadResultAlertImpl(success: Bool, message: String) {
+    // 建立提示框
+    let title = success ? "上傳完成" : "上傳失敗"
+    let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+    
+    // 添加確認按鈕
+    let okAction = UIAlertAction(title: "確定", style: .default)
+    alert.addAction(okAction)
+    
+    // 添加震動反饋
+    if success {
+        let generator = UINotificationFeedbackGenerator()
+        generator.notificationOccurred(.success)
+    } else {
+        let generator = UINotificationFeedbackGenerator()
+        generator.notificationOccurred(.error)
+    }
+    
+    // 顯示提示框
+    self.present(alert, animated: true) {
+        // 確保提示框顯示後的回調
+        print("上傳結果提示框已顯示")
+    }
 }
 
 // 新增：直接上傳方法（基於測試程式碼）
