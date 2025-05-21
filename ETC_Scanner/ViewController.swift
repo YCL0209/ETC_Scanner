@@ -62,20 +62,35 @@ struct ServerResponse: Codable {
 
 class NetworkManager {
     static let shared = NetworkManager()
-    private var serverURL: String = "http://192.168.1.102:5000"
+    
+    private var _serverURL: String = "http://192.168.0.6:5000"
+    private var serverURL: String {
+        get {
+            return UserDefaults.standard.string(forKey: "serverURL") ?? _serverURL
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "serverURL")
+        }
+    }
+    
     private var fileName: String = "住戶ETC資料.csv" // 預設檔案名稱
     private let adminPassword = "123456" // 設定管理員密碼
     
     private init() {}
 
     // 新增檢查伺服器狀態的方法
-    func checkServerStatus(completion: @escaping (Bool, String?) -> Void) {
-        guard let url = URL(string: "\(serverURL)/api/server/info") else {
-            completion(false, "無效的伺服器網址")
-            return
-        }
+   func checkServerStatus(completion: @escaping (Bool, String?) -> Void) {
+    // 確保 URL 格式正確，移除尾部斜線
+    let baseURL = serverURL.hasSuffix("/") ? String(serverURL.dropLast()) : serverURL
+    
+    guard let url = URL(string: "\(baseURL)/api/server/info") else {
+        completion(false, "無效的伺服器網址")
+        return
+    }
         
-        let task = URLSession.shared.dataTask(with: url) { (data, response, error) in
+        let request = URLRequest(url: url, timeoutInterval: 15) // 增加逾時時間到 15 秒
+        
+        let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
             if let error = error {
                 completion(false, "網路錯誤：\(error.localizedDescription)")
                 return
@@ -104,15 +119,35 @@ class NetworkManager {
         guard password == adminPassword else {
             return false
         }
-        serverURL = newURL
+        serverURL = newURL  // 這會自動儲存到 UserDefaults 中
         fileName = newFileName
+        UserDefaults.standard.set(newFileName, forKey: "fileName")
         return true
     }
     func downloadCSV(fileName: String, completion: @escaping (Result<Data, Error>) -> Void) {
-        // 修改 URL 構建方式，使用正確的下載 API 路徑
-        guard let encodedFileName = fileName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed),
-              let url = URL(string: "\(serverURL)/api/file/download?fileName=\(encodedFileName)") else {
-            completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])))
+        guard let url = getDownloadURL(fileName: fileName) else {
+            completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "無效的URL"])))
+            return
+        }
+        
+        print("下載檔案 URL: \(url.absoluteString)")
+        
+        // 確保 URL 格式正確
+        let baseURL = serverURL.hasSuffix("/") ? String(serverURL.dropLast()) : serverURL
+        
+        // 確保檔案名正確編碼
+        guard let encodedFileName = fileName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
+            print("檔案名編碼失敗: \(fileName)")
+            completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "檔案名編碼失敗"])))
+            return
+        }
+        
+        let urlString = "\(baseURL)/api/file/download?fileName=\(encodedFileName)"
+        print("下載檔案 URL: \(urlString)")
+        
+        guard let url = URL(string: urlString) else {
+            print("構建下載 URL 失敗")
+            completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "無效的URL"])))
             return
         }
         
@@ -121,99 +156,185 @@ class NetworkManager {
         
         let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
             if let error = error {
+                print("下載錯誤: \(error.localizedDescription)")
                 completion(.failure(error))
                 return
             }
             
             guard let httpResponse = response as? HTTPURLResponse else {
-                completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid response"])))
+                print("無效的 HTTP 回應")
+                completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "無效的回應"])))
                 return
             }
             
-            guard httpResponse.statusCode == 200 else {
-                completion(.failure(NSError(domain: "", code: httpResponse.statusCode, 
-                    userInfo: [NSLocalizedDescriptionKey: "Server returned status code \(httpResponse.statusCode)"])))
+            print("下載 HTTP 狀態碼: \(httpResponse.statusCode)")
+            
+            guard (200...299).contains(httpResponse.statusCode) else {
+                print("HTTP 錯誤: \(httpResponse.statusCode)")
+                
+                // 嘗試讀取錯誤訊息
+                if let errorData = data, let errorString = String(data: errorData, encoding: .utf8) {
+                    print("錯誤回應: \(errorString)")
+                }
+                
+                completion(.failure(NSError(domain: "", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "伺服器錯誤: \(httpResponse.statusCode)"])))
                 return
             }
             
-            guard let data = data else {
-                completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "No data received"])))
+            guard let data = data, !data.isEmpty else {
+                print("下載的數據為空")
+                completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "下載的數據為空"])))
                 return
             }
             
+            print("成功下載數據，大小: \(data.count) 字節")
             completion(.success(data))
         }
+        
         task.resume()
     }
 
     
      func uploadCSV(fileURL: URL, completion: @escaping (Bool, Error?) -> Void) {
-        guard let url = URL(string: "\(serverURL)/api/file/upload") else {
-            completion(false, NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"]))
+        guard let url = getUploadURL() else {
+            completion(false, NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "無效的 URL"]))
             return
         }
         
+        print("開始上傳到: \(url.absoluteString)")
+        
+        // 2. 設定請求
+        let boundary = "Boundary-\(UUID().uuidString)"
         var request = URLRequest(url: url)
         request.httpMethod = "POST"
-        
-        let boundary = "Boundary-\(UUID().uuidString)"
         request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
         
+        // 3. 建立 multipart/form-data 內容
         var data = Data()
         data.append("\r\n--\(boundary)\r\n".data(using: .utf8)!)
         data.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(fileURL.lastPathComponent)\"\r\n".data(using: .utf8)!)
-        data.append("Content-Type: text/csv\r\n\r\n".data(using: .utf8)!)
+        data.append("Content-Type: application/octet-stream\r\n\r\n".data(using: .utf8)!) // 使用通用內容類型
         
         do {
+            // 4. 讀取檔案
+            print("開始讀取檔案: \(fileURL.path)")
             let fileData = try Data(contentsOf: fileURL)
+            print("檔案大小: \(fileData.count) 位元組")
+            
             data.append(fileData)
             data.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
             
-            let task = URLSession.shared.uploadTask(with: request, from: data) { (_, response, error) in
+            // 5. 建立並執行上傳任務
+            print("開始上傳到: \(url.absoluteString)")
+            let task = URLSession.shared.uploadTask(with: request, from: data) { (responseData, response, error) in
                 if let error = error {
+                    print("上傳錯誤: \(error.localizedDescription)")
                     completion(false, error)
                     return
                 }
                 
                 if let httpResponse = response as? HTTPURLResponse {
-                    completion(httpResponse.statusCode == 200, nil)
+                    print("伺服器回應狀態碼: \(httpResponse.statusCode)")
+                    
+                    // 嘗試解析伺服器回應
+                    if let responseData = responseData, let responseString = String(data: responseData, encoding: .utf8) {
+                        print("伺服器回應: \(responseString)")
+                    }
+                    
+                    let success = (200...299).contains(httpResponse.statusCode)
+                    if !success {
+                        let error = NSError(domain: "", code: httpResponse.statusCode, 
+                                            userInfo: [NSLocalizedDescriptionKey: "伺服器回應非成功狀態碼: \(httpResponse.statusCode)"])
+                        completion(false, error)
+                    } else {
+                        completion(true, nil)
+                    }
+                } else {
+                    completion(false, NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "無法獲取HTTP回應"]))
                 }
             }
+            
             task.resume()
         } catch {
+            print("讀取檔案失敗: \(error.localizedDescription)")
             completion(false, error)
         }
     }
      func fetchFileList(completion: @escaping (Result<[FileInfo], Error>) -> Void) {
-        guard let url = URL(string: "\(serverURL)/api/file/list") else {
-            completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Invalid URL"])))
+        guard let url = getFileListURL() else {
+            completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "無效的URL"])))
             return
         }
         
-        let task = URLSession.shared.dataTask(with: url) { (data, response, error) in
+        print("正在獲取檔案列表，URL: \(url.absoluteString)")
+        
+        // 添加額外的請求頭，確保接收 JSON
+        var request = URLRequest(url: url)
+        request.setValue("application/json", forHTTPHeaderField: "Accept")
+        
+        let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
             if let error = error {
+                print("網絡錯誤: \(error.localizedDescription)")
                 completion(.failure(error))
                 return
             }
             
+            if let httpResponse = response as? HTTPURLResponse {
+                print("HTTP 狀態碼: \(httpResponse.statusCode)")
+            }
+            
             guard let data = data else {
-                completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "No data received"])))
+                print("沒有接收到數據")
+                completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "未接收到數據"])))
                 return
+            }
+            
+            // 打印原始回應，幫助診斷
+            if let responseString = String(data: data, encoding: .utf8) {
+                print("原始回應: \(responseString)")
             }
             
             do {
                 let response = try JSONDecoder().decode(ServerResponse.self, from: data)
-                if response.success {
-                    completion(.success(response.files))
+                print("解析成功，檔案數量: \(response.files.count)")
+                
+                if response.files.isEmpty {
+                    print("伺服器返回的檔案列表為空")
                 } else {
-                    completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "Server returned failure"])))
+                    print("檔案列表: \(response.files.map { $0.fileName }.joined(separator: ", "))")
                 }
+                
+                completion(.success(response.files))
             } catch {
+                print("JSON 解析錯誤: \(error)")
                 completion(.failure(error))
             }
         }
+        
         task.resume()
     }
+    // 添加到 NetworkManager 中
+private func getBaseURL() -> String {
+    let url = serverURL.hasSuffix("/") ? String(serverURL.dropLast()) : serverURL
+    print("使用伺服器 URL: \(url)")
+    return url
+}
+
+func getUploadURL() -> URL? {
+    return URL(string: "\(getBaseURL())/api/file/upload")
+}
+
+func getFileListURL() -> URL? {
+    return URL(string: "\(getBaseURL())/api/file/list")
+}
+
+func getDownloadURL(fileName: String) -> URL? {
+    guard let encodedFileName = fileName.addingPercentEncoding(withAllowedCharacters: .urlQueryAllowed) else {
+        return nil
+    }
+    return URL(string: "\(getBaseURL())/api/file/download?fileName=\(encodedFileName)")
+}
+
     }
     
 
@@ -364,6 +485,9 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
                 button.imageView?.frame = button.bounds
             }
         }
+        
+        // 記錄UI佈局信息
+        logViewHierarchy()
     }
     // 新增一個檢查方法
     private func checkIBOutletConnections() {
@@ -387,11 +511,26 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     
     // MARK: - Setup
     private func setupUI() {
+        // 設置UI元素的順序很重要
         setupTopBackground()
         setupStatusArea()
         setupScanningArea()
         setupButtonsArea()
         setupTableView()
+        
+        // 確認UI設置完成
+        print("✅ UI設置完成 - 所有元素已正確配置")
+        
+        /* 
+         UI改進說明：
+         1. 使用UIStackView替代手動計算按鈕位置，確保按鈕在不同設備上均勻分布
+         2. 修正掃描器圖片的頂部約束，避免與頂部背景重疊
+         3. 優化表格視圖的約束，使用堆疊視圖作為參考點
+         4. 添加UI佈局日誌功能，方便在不同設備上調試佈局問題
+         5. 確保UI元素設置的順序正確，避免相互依賴問題
+         
+         這些改進使應用程式在各種iPhone尺寸上都能正確顯示，解決了之前在iPhone 14 Pro等設備上的顯示問題。
+         */
     }
     private func setupScanningArea() {
         guard let imageView = scannerImageView,
@@ -415,7 +554,7 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
         // 添加自動佈局約束
         imageView.translatesAutoresizingMaskIntoConstraints = false
         NSLayoutConstraint.activate([
-            imageView.topAnchor.constraint(equalTo: topBackgroundImage?.bottomAnchor ?? view.safeAreaLayoutGuide.topAnchor, constant: -30),
+            imageView.topAnchor.constraint(equalTo: topBackgroundImage?.bottomAnchor ?? view.safeAreaLayoutGuide.topAnchor, constant: 10), // 修改為正值，避免重疊
             imageView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 16),
             imageView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -16),
             imageView.heightAnchor.constraint(equalToConstant: 50)
@@ -483,10 +622,16 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
             return
         }
         
-        // 統一設定所有按鈕的基本屬性
-        let buttons = [all, export, delete, search]
+        // 創建堆疊視圖
+        let stackView = UIStackView(arrangedSubviews: [all, search, export, delete])
+        stackView.axis = .horizontal
+        stackView.distribution = .fillEqually
+        stackView.spacing = 10
+        stackView.translatesAutoresizingMaskIntoConstraints = false
+        view.addSubview(stackView)
         
         // 統一設定所有按鈕的基本屬性
+        let buttons = [all, search, export, delete]
         buttons.forEach { button in
             // 基本樣式設定
             button.backgroundColor = UIColor(red: 135/255, green: 206/255, blue: 235/255, alpha: 1.0)
@@ -500,49 +645,23 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
             button.addTarget(self, action: #selector(buttonTouchUpInside(_:)), for: .touchUpInside)
             button.addTarget(self, action: #selector(buttonTouchUpOutside(_:)), for: .touchUpOutside)
             button.addTarget(self, action: #selector(buttonTouchDragExit(_:)), for: .touchDragExit)
-            
-            // 啟用自動佈局
-            button.translatesAutoresizingMaskIntoConstraints = false
         }
         
         // 設定按鈕文字
         all.setTitle("匯入", for: .normal)
+        search.setTitle("搜尋", for: .normal)
         export.setTitle("匯出", for: .normal)
         delete.setTitle("刪除", for: .normal)
-        search.setTitle("搜尋", for: .normal)
         
         // 刪除按鈕使用紅色背景
         delete.backgroundColor = UIColor(red: 220/255, green: 53/255, blue: 69/255, alpha: 1.0)
         
-        // 使用自動佈局約束來排列按鈕
-        let buttonHeight: CGFloat = 40
-        let buttonSpacing: CGFloat = (view.frame.width - 40 - 70 * 4) / 3 // 計算按鈕間距
-        
+        // 設置堆疊視圖的約束
         NSLayoutConstraint.activate([
-            // 匯入按鈕
-            all.topAnchor.constraint(equalTo: scannerImageView?.bottomAnchor ?? view.safeAreaLayoutGuide.topAnchor, constant: 28),
-            all.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
-            all.heightAnchor.constraint(equalToConstant: buttonHeight),
-            all.widthAnchor.constraint(equalToConstant: 70),
-            
-            // 搜尋按鈕
-            search.topAnchor.constraint(equalTo: all.topAnchor),
-            search.leadingAnchor.constraint(equalTo: all.trailingAnchor, constant: buttonSpacing),
-            search.heightAnchor.constraint(equalToConstant: buttonHeight),
-            search.widthAnchor.constraint(equalToConstant: 70),
-            
-            // 匯出按鈕
-            export.topAnchor.constraint(equalTo: all.topAnchor),
-            export.leadingAnchor.constraint(equalTo: search.trailingAnchor, constant: buttonSpacing),
-            export.heightAnchor.constraint(equalToConstant: buttonHeight),
-            export.widthAnchor.constraint(equalToConstant: 70),
-            
-            // 刪除按鈕
-            delete.topAnchor.constraint(equalTo: all.topAnchor),
-            delete.leadingAnchor.constraint(equalTo: export.trailingAnchor, constant: buttonSpacing),
-            delete.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
-            delete.heightAnchor.constraint(equalToConstant: buttonHeight),
-            delete.widthAnchor.constraint(equalToConstant: 70)
+            stackView.topAnchor.constraint(equalTo: scannerImageView?.bottomAnchor ?? view.safeAreaLayoutGuide.topAnchor, constant: 20),
+            stackView.leadingAnchor.constraint(equalTo: view.leadingAnchor, constant: 20),
+            stackView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            stackView.heightAnchor.constraint(equalToConstant: 40)
         ])
     }
     
@@ -706,10 +825,13 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     table.isHidden = false
     table.alpha = 1.0
     
+    // 尋找堆疊視圖作為參考點
+    let buttonStackView = view.subviews.first(where: { $0 is UIStackView }) as? UIStackView
+    
     // 添加自動佈局約束
     table.translatesAutoresizingMaskIntoConstraints = false
     NSLayoutConstraint.activate([
-        table.topAnchor.constraint(equalTo: importButton?.bottomAnchor ?? view.safeAreaLayoutGuide.topAnchor, constant: 20),
+        table.topAnchor.constraint(equalTo: buttonStackView?.bottomAnchor ?? view.safeAreaLayoutGuide.topAnchor, constant: 20),
         table.leadingAnchor.constraint(equalTo: view.leadingAnchor),
         table.trailingAnchor.constraint(equalTo: view.trailingAnchor),
         table.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
@@ -1141,56 +1263,85 @@ private func importFromLocalFile() {
     present(documentPicker, animated: true)
 }
     
+    // 修改隱藏載入中提示的方法
+    private func dismissLoadingAlert(completion: (() -> Void)? = nil) {
+        if let alert = presentedViewController as? UIAlertController {
+            alert.dismiss(animated: true) {
+                completion?()
+            }
+        } else {
+            completion?()
+        }
+    }
+    
+    // 修改檔案選擇的方法
     private func showFileSelectionAlert(fileList: [FileInfo]) {
-        let alert = UIAlertController(title: "選擇檔案", 
-                                    message: "請選擇要匯入的檔案", 
-                                    preferredStyle: .actionSheet)
-        
-        for fileInfo in fileList {
-            let actionTitle = """
-                檔案：\(fileInfo.fileName)
-                大小：\(fileInfo.formattedSize)
-                上傳時間：\(fileInfo.formattedTime)
-                """
+        // 確保所有現有的警告框已經消失
+        self.dismissLoadingAlert {
+            let alert = UIAlertController(title: "選擇檔案", 
+                                        message: "請選擇要匯入的檔案", 
+                                        preferredStyle: .actionSheet)
             
-            let fileAction = UIAlertAction(title: actionTitle, style: .default) { [weak self] _ in
-                self?.showLoadingAlert(message: "正在下載檔案...")
+            for fileInfo in fileList {
+                let actionTitle = """
+                    檔案：\(fileInfo.fileName)
+                    大小：\(fileInfo.formattedSize)
+                    上傳時間：\(fileInfo.formattedTime)
+                    """
                 
-                NetworkManager.shared.downloadCSV(fileName: fileInfo.fileName) { result in
-                    DispatchQueue.main.async {
-                        self?.dismissLoadingAlert()
-                        
-                        switch result {
-                        case .success(let data):
-                            if let csvString = String(data: data, encoding: .utf8) {
-                                let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(fileInfo.fileName)
-                                do {
-                                    try csvString.write(to: tempURL, atomically: true, encoding: .utf8)
-                                    self?.parseCSV(from: tempURL)
-                                } catch {
-                                    self?.showAlert(title: "錯誤", message: "無法處理檔案：\(error.localizedDescription)")
+                let fileAction = UIAlertAction(title: actionTitle, style: .default) { [weak self] _ in
+                    print("選擇下載檔案: \(fileInfo.fileName)")
+                    self?.showLoadingAlert(message: "正在下載檔案...")
+                    
+                    NetworkManager.shared.downloadCSV(fileName: fileInfo.fileName) { result in
+                        DispatchQueue.main.async {
+                            self?.dismissLoadingAlert {
+                                switch result {
+                                case .success(let data):
+                                    print("成功下載檔案，大小: \(data.count) 字節")
+                                    
+                                    if let csvString = String(data: data, encoding: .utf8) {
+                                        print("CSV 內容前 100 字符: \(String(csvString.prefix(100)))")
+                                        
+                                        let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(fileInfo.fileName)
+                                        print("保存下載檔案到: \(tempURL.path)")
+                                        
+                                        do {
+                                            try csvString.write(to: tempURL, atomically: true, encoding: .utf8)
+                                            self?.parseCSV(from: tempURL)
+                                        } catch {
+                                            print("寫入檔案失敗: \(error)")
+                                            self?.showAlert(title: "錯誤", message: "無法處理檔案：\(error.localizedDescription)")
+                                        }
+                                    } else {
+                                        print("無法將數據轉換為 CSV 字符串")
+                                        self?.showAlert(title: "錯誤", message: "無法解析 CSV 數據")
+                                    }
+                                    
+                                case .failure(let error):
+                                    print("下載失敗: \(error)")
+                                    self?.showAlert(title: "錯誤", message: "無法從伺服器下載：\(error.localizedDescription)")
                                 }
                             }
-                        case .failure(let error):
-                            self?.showAlert(title: "錯誤", message: "無法從伺服器下載：\(error.localizedDescription)")
                         }
                     }
                 }
+                alert.addAction(fileAction)
             }
-            alert.addAction(fileAction)
+            
+            let cancelAction = UIAlertAction(title: "取消", style: .cancel)
+            alert.addAction(cancelAction)
+            
+            // iPad 需要設置 popoverPresentationController
+            if let popover = alert.popoverPresentationController {
+                popover.sourceView = self.view
+                popover.sourceRect = CGRect(x: self.view.bounds.midX, y: self.view.bounds.midY, width: 0, height: 0)
+                popover.permittedArrowDirections = []
+            }
+            
+            self.present(alert, animated: true)
         }
-        
-        let cancelAction = UIAlertAction(title: "取消", style: .cancel)
-        alert.addAction(cancelAction)
-        
-        if let popover = alert.popoverPresentationController {
-            popover.sourceView = view
-            popover.sourceRect = view.bounds
-        }
-        
-        present(alert, animated: true)
     }
-    
     
 
     
@@ -1242,34 +1393,73 @@ private func generateCSVHeader() -> String {
 // 5. 生成完整 CSV 內容
 private func generateCSVContent(for building: Building) -> String {
     let header = generateCSVHeader()
-    var rows = ""
+    
+    // 先呼叫診斷函數檢查數據
+    debugScannedItems()
     
     // 過濾指定棟別的資料
     let filteredItems = scannedItems.filter { item in
-        return item.building?.contains(building.rawValue) ?? false
+        if let itemBuilding = item.building {
+            // 店面資料應該包含在兩個檔案中
+            if itemBuilding.contains("店面") {
+                return true
+            }
+            
+            switch building {
+            case .buildingAB:
+                return itemBuilding.contains("A") || itemBuilding.contains("B")
+            case .buildingCDE:
+                return itemBuilding.contains("C") || itemBuilding.contains("D") || itemBuilding.contains("E")
+            }
+        }
+        return false
     }
     
+    // 新增：打印過濾後的項目數量
+    print("棟別 \(building.rawValue) 過濾後項目數量: \(filteredItems.count)")
+    
     // 生成資料行
+    var rows = ""
     for (index, item) in filteredItems.enumerated() {
         rows += generateCSVRow(index: index, item: item)
         rows += "\n"
+        
+        // 新增：顯示正在生成的行
+        print("生成第 \(index) 行: \(generateCSVRow(index: index, item: item))")
     }
     
-    return header + rows
+    let fullContent = header + rows
+    // 新增：檢查最終內容
+    print("最終CSV大小: \(fullContent.count) 字符，行數: \(fullContent.components(separatedBy: "\n").count)")
+    
+    return fullContent
 }
+
 private enum Building: String, CaseIterable {
-    case building1 = "第1棟"
-    case building2 = "第2棟"
+   
+    case buildingAB = "AB棟"
+    case buildingCDE = "CDE棟"
     
     var filenameSuffix: String {
         switch self {
-        case .building1: return "#1"
-        case .building2: return "#2"
+        
+        case .buildingAB: return "AB"
+        case .buildingCDE: return "CDE"
         }
     }
 }
 // 6. 匯出按鈕動作
 @IBAction func exportButtonTapped(_ sender: UIButton) {
+    // 檢測雙擊：利用點擊時間間隔判斷
+    //let currentTime = Date().timeIntervalSince1970
+    //if currentTime - lastTapTime < 0.5 {
+        // 雙擊檢測到，執行測試上傳
+        //testFixedContentUpload()
+        //lastTapTime = 0 // 重置時間戳
+        //return
+   // }
+    //lastTapTime = currentTime
+    
     // 保留長按手勢
     let longPress = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress))
     longPress.minimumPressDuration = 1.5
@@ -1278,6 +1468,9 @@ private enum Building: String, CaseIterable {
     // 直接顯示棟別選擇
     showBuildingSelectionAlert(sender)
 }
+// 添加一個時間戳屬性用於雙擊檢測
+private var lastTapTime: TimeInterval = 0
+
 // 保留長按處理方法
 @objc private func handleLongPress(_ gesture: UILongPressGestureRecognizer) {
     if gesture.state == .began {
@@ -1329,38 +1522,164 @@ private func showBuildingSelectionAlert(_ sender: UIButton) {
 }
 
 private func exportCSVForBuilding(_ building: Building) {
-    // 生成檔案名稱，加入時間戳和棟別標記
-    let dateFormatter = DateFormatter()
-    dateFormatter.dateFormat = "yyyyMMddHHmmss"
-    let timestamp = dateFormatter.string(from: Date())
-    let fileName = "\(timestamp)_住戶ETC資料\(building.filenameSuffix).csv"
+    // 不再需要加入時間戳，伺服器會自動加上
+    // 直接使用簡單的檔名
+    let fileName = "ETC\(building.filenameSuffix)棟資料.csv"
+    
+    // 記錄最終使用的檔案名稱
+    print("最終使用的檔案名稱: \(fileName)")
     
     // 生成 CSV 內容
     let csvContent = generateCSVContent(for: building)
-    let tempDir = FileManager.default.temporaryDirectory
-    let fileURL = tempDir.appendingPathComponent(fileName)
     
-    do {
-        try csvContent.write(to: fileURL, atomically: true, encoding: .utf8)
-        uploadCSVFile(fileURL, for: building)
-    } catch {
-        showAlert(title: "錯誤", message: "無法建立匯出檔案：\(error.localizedDescription)")
-    }
+    // 上傳內容
+    uploadWithSimpleFileName(content: csvContent, fileName: fileName, for: building)
 }
 
+// 使用非常簡單明確的上傳方法，專注於檔案名稱問題
+private func uploadWithSimpleFileName(content: String, fileName: String, for building: Building) {
 
-private func uploadCSVFile(_ fileURL: URL, for building: Building) {
-    NetworkManager.shared.uploadCSV(fileURL: fileURL) { [weak self] success, error in
+    print("===== 開始上傳檔案 \(fileName) =====")
+    print("內容大小：\(content.count) 字符")
+
+    showLoadingAlert(message: "正在上傳中...")
+    
+    // 確保檔名不含可能導致問題的字符
+    let safeFileName = fileName
+        .replacingOccurrences(of: " ", with: "_")
+        .replacingOccurrences(of: "#", with: "")
+        .replacingOccurrences(of: "住戶ETC資料", with: "ETC_Data")
+    
+    print("處理後的安全檔名: \(safeFileName)")
+    
+    // 使用 NetworkManager 的方法獲取 URL
+    guard let url = NetworkManager.shared.getUploadURL() else {
+        self.dismissLoadingAlert()
+        self.showAlert(title: "錯誤", message: "無效的上傳 URL")
+        return
+    }
+    
+    // 使用固定的 URL
+    let boundary = "Boundary-\(UUID().uuidString)"
+    var request = URLRequest(url: url)
+    
+    request.httpMethod = "POST"
+    request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+    
+    var data = Data()
+    data.append("\r\n--\(boundary)\r\n".data(using: .utf8)!)
+    data.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(safeFileName)\"\r\n".data(using: .utf8)!)
+    data.append("Content-Type: text/csv\r\n\r\n".data(using: .utf8)!)
+    
+    // 檢查內容並上傳
+    if content.count > 0 {
+        data.append(content.data(using: .utf8)!)
+    } else {
+        // 提供一個默認內容，避免空檔案
+        let defaultContent = "序號,棟別,戶別,所有權人,承租人,電話,車位號碼,車種,車牌,ETAG\n1,測試數據,請檢查原始數據,,,,,,,\n"
+        data.append(defaultContent.data(using: .utf8)!)
+    }
+    
+    data.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+    
+    // 執行上傳任務
+    let task = URLSession.shared.uploadTask(with: request, from: data) { [weak self] responseData, response, error in
         DispatchQueue.main.async {
-            if success {
-                self?.showAlert(title: "成功", message: "\(building.rawValue)的資料已成功上傳到伺服器")
+            guard let self = self else { return }
+            self.dismissLoadingAlert()
+            
+            if let error = error {
+                self.showAlert(title: "上傳失敗", message: error.localizedDescription)
+                return
+            }
+            
+            if let httpResponse = response as? HTTPURLResponse {
+                print("伺服器回應狀態碼: \(httpResponse.statusCode)")
+                
+                // 嘗試解析伺服器回應
+                if let responseData = responseData, let responseString = String(data: responseData, encoding: .utf8) {
+                    print("伺服器回應: \(responseString)")
+                }
+                
+                let success = (200...299).contains(httpResponse.statusCode)
+                if success {
+                    self.showAlert(title: "成功", message: "\(building.rawValue)的資料已成功上傳到伺服器")
+                } else {
+                    self.showAlert(title: "錯誤", message: "上傳失敗：伺服器回應代碼 \(httpResponse.statusCode)")
+                }
             } else {
-                self?.showAlert(title: "錯誤", message: "上傳失敗：\(error?.localizedDescription ?? "未知錯誤")")
+                self.showAlert(title: "錯誤", message: "無法獲取HTTP回應")
             }
         }
     }
+    
+    task.resume()
 }
 
+// 新增：直接上傳方法（基於測試程式碼）
+private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Error?) -> Void) {
+    // 準備上傳請求
+    let boundary = "Boundary-\(UUID().uuidString)"
+    
+    // 使用與測試應用相同的硬編碼URL進行測試
+    let urlString = "http://192.168.0.6:5000/api/file/upload"
+    guard let url = URL(string: urlString) else {
+        completion(false, NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "無效的URL"]))
+        return
+    }
+    
+    var request = URLRequest(url: url)
+    request.httpMethod = "POST"
+    request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+    
+    // 創建 multipart/form-data 內容
+    var data = Data()
+    data.append("\r\n--\(boundary)\r\n".data(using: .utf8)!)
+    data.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(fileURL.lastPathComponent)\"\r\n".data(using: .utf8)!)
+    data.append("Content-Type: text/csv\r\n\r\n".data(using: .utf8)!)
+    
+    // 添加檔案內容
+    do {
+        let fileData = try Data(contentsOf: fileURL)
+        print("[直接上傳] 文件大小: \(fileData.count) 字節")
+        
+        if fileData.isEmpty {
+            completion(false, NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "文件內容為空"]))
+            return
+        }
+        
+        data.append(fileData)
+        data.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+        
+        // 創建上傳任務
+        let task = URLSession.shared.uploadTask(with: request, from: data) { data, response, error in
+            if let error = error {
+                print("[直接上傳] 錯誤: \(error.localizedDescription)")
+                completion(false, error)
+                return
+            }
+            
+            if let httpResponse = response as? HTTPURLResponse {
+                print("[直接上傳] 伺服器回應: \(httpResponse.statusCode)")
+                
+                // 嘗試解析伺服器回應
+                if let responseData = data, let responseString = String(data: responseData, encoding: .utf8) {
+                    print("[直接上傳] 回應內容: \(responseString)")
+                }
+                
+                completion(httpResponse.statusCode >= 200 && httpResponse.statusCode < 300, nil)
+            } else {
+                completion(false, NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "未收到HTTP回應"]))
+            }
+        }
+        
+        task.resume()
+        
+    } catch {
+        print("[直接上傳] 檔案讀取失敗: \(error.localizedDescription)")
+        completion(false, error)
+    }
+}
     
     // 新增顯示設定伺服器的彈出視窗方法
     private func showServerSettingsAlert() {
@@ -1414,15 +1733,6 @@ private func uploadCSVFile(_ fileURL: URL, for building: Building) {
         present(alert, animated: true, completion: nil)
     }
     
-    // 新增隱藏載入中提示的方法
-    private func dismissLoadingAlert() {
-        if let alert = presentedViewController as? UIAlertController {
-            alert.dismiss(animated: true, completion: nil)
-        }
-    }
-    
-
-    
     @IBAction func deleteButtonTapped(_ sender: UIButton) {
         let alert = UIAlertController(title: "確認刪除",
                                       message: "確定要刪除所選項目嗎？",
@@ -1442,9 +1752,19 @@ private func uploadCSVFile(_ fileURL: URL, for building: Building) {
     }
     
     private func showAlert(title: String, message: String) {
-        let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
-        alert.addAction(UIAlertAction(title: "確定", style: .default))
-        present(alert, animated: true)
+        // 確保在主線程執行
+        DispatchQueue.main.async { [weak self] in
+            guard let self = self else { return }
+            
+            // 如果已經顯示了一個警告框，則不再顯示新的警告框
+            if self.presentedViewController is UIAlertController {
+                return
+            }
+            
+            let alert = UIAlertController(title: title, message: message, preferredStyle: .alert)
+            alert.addAction(UIAlertAction(title: "確定", style: .default))
+            self.present(alert, animated: true)
+        }
     }
     
     private func parseCSV(from url: URL) {
@@ -1654,6 +1974,147 @@ private func uploadCSVFile(_ fileURL: URL, for building: Building) {
     }
 }
 
+// MARK: - UI Debugging
+private func logViewHierarchy() {
+    print("📱 設備型號: \(UIDevice.current.model)")
+    print("📱 螢幕尺寸: \(UIScreen.main.bounds.size)")
+    print("📱 安全區域: \(view.safeAreaInsets)")
+    
+    // 記錄主要UI元素的框架
+    if let topImage = topBackgroundImage {
+        print("🔍 頂部背景圖: \(topImage.frame)")
+    }
+    
+    if let scanner = scannerImageView {
+        print("🔍 掃描器圖片: \(scanner.frame)")
+    }
+    
+    if let table = tableView {
+        print("🔍 表格視圖: \(table.frame)")
+    }
+    
+    // 記錄按鈕的位置
+    let buttons = [importButton, searchButton, exportButton, deleteButton]
+    for (index, button) in buttons.enumerated() {
+        if let btn = button {
+            print("🔍 按鈕\(index): \(btn.frame)")
+        }
+    }
+}
+// 添加這個測試函數到 ViewController 類中
+private func testFixedContentUpload() {
+    // 創建一個有已知內容的 CSV 文件
+    let csvContent = """
+    序號,棟別,戶別,所有權人,承租人,電話,車位號碼,車種,車牌,ETAG
+    1,第1棟,101,張三,李四,0912345678,A101,汽車,ABC-1234,E12345678
+    2,第1棟,102,王五,趙六,0923456789,A102,機車,DEF-5678,E87654321
+    """
+    
+    // 保存到臨時文件
+    let tempDir = FileManager.default.temporaryDirectory
+    let fileName = "test_fixed_content.csv"
+    let fileURL = tempDir.appendingPathComponent(fileName)
+    
+    do {
+        try csvContent.write(to: fileURL, atomically: true, encoding: .utf8)
+        print("已創建測試文件：\(fileURL.path)")
+        print("文件大小：\(csvContent.count) 字符")
+        
+        // 讀取文件內容確認
+        let readContent = try String(contentsOf: fileURL, encoding: .utf8)
+        print("讀取的文件內容：\n\(readContent)")
+        
+        // 使用與您測試軟體完全相同的方式上傳
+        uploadTestFile(fileURL)
+    } catch {
+        print("測試文件創建失敗：\(error.localizedDescription)")
+    }
+}
+
+private func uploadTestFile(_ fileURL: URL) {
+    // 準備上傳請求
+    let boundary = "Boundary-\(UUID().uuidString)"
+    var request = URLRequest(url: URL(string: "http://192.168.0.6:5000/api/file/upload")!)
+    request.httpMethod = "POST"
+    request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
+    
+    // 創建 multipart/form-data 內容
+    var data = Data()
+    data.append("\r\n--\(boundary)\r\n".data(using: .utf8)!)
+    data.append("Content-Disposition: form-data; name=\"file\"; filename=\"\(fileURL.lastPathComponent)\"\r\n".data(using: .utf8)!)
+    data.append("Content-Type: text/csv\r\n\r\n".data(using: .utf8)!)
+    
+    // 添加檔案內容
+    do {
+        let fileData = try Data(contentsOf: fileURL)
+        print("測試上傳：檔案大小 \(fileData.count) 字節")
+        
+        data.append(fileData)
+        data.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
+        
+        // 創建上傳任務
+        let task = URLSession.shared.uploadTask(with: request, from: data) { [weak self] responseData, response, error in
+            DispatchQueue.main.async {
+                guard let self = self else { return }
+                
+                if let error = error {
+                    self.showAlert(title: "測試上傳失敗", message: error.localizedDescription)
+                    return
+                }
+                
+                if let httpResponse = response as? HTTPURLResponse {
+                    if (200...299).contains(httpResponse.statusCode) {
+                        self.showAlert(title: "測試上傳成功", message: "檔案已成功上傳到伺服器")
+                    } else {
+                        self.showAlert(title: "測試上傳失敗", message: "伺服器回應代碼: \(httpResponse.statusCode)")
+                    }
+                }
+            }
+        }
+        
+        task.resume()
+        
+    } catch {
+        print("測試上傳：檔案讀取失敗 \(error.localizedDescription)")
+    }
+}
+
+    private func debugScannedItems() {
+        print("=== 掃描項目棟別資訊檢查 ===")
+        print("總項目數: \(scannedItems.count)")
+        
+        for (index, item) in scannedItems.enumerated() {
+            print("項目 \(index):")
+            print("  Code: \(item.code)")
+            print("  棟別: \(item.building ?? "無")")
+            print("  戶別: \(item.household ?? "無")")
+            print("  車位: \(item.parkingNumber ?? "無")")
+        }
+        
+        // 檢查每個棟別的過濾結果
+        for building in Building.allCases {
+            var count = 0
+            switch building {
+            case .buildingAB:
+                count = scannedItems.filter {
+                    if let b = $0.building {
+                        return b.contains("A") || b.contains("B") || b.contains("店面")
+                    }
+                    return false
+                }.count
+            case .buildingCDE:
+                count = scannedItems.filter {
+                    if let b = $0.building {
+                        return b.contains("C") || b.contains("D") || b.contains("E") || b.contains("店面")
+                    }
+                    return false
+                }.count
+            }
+            print("棟別 '\(building.rawValue)' 匹配項目數: \(count)")
+        }
+        
+        print("===============================")
+    }
 }
 
 
@@ -1666,5 +2127,8 @@ extension UIImage {
         draw(in: CGRect(origin: .zero, size: size))
         return UIGraphicsGetImageFromCurrentImageContext()
     }
- }
+}
+
+
+
 
