@@ -1482,23 +1482,35 @@ private enum Building: String, CaseIterable {
 }
 // 6. 匯出按鈕動作
 @IBAction func exportButtonTapped(_ sender: UIButton) {
-    // 檢測雙擊：利用點擊時間間隔判斷
-    //let currentTime = Date().timeIntervalSince1970
-    //if currentTime - lastTapTime < 0.5 {
-        // 雙擊檢測到，執行測試上傳
-        //testFixedContentUpload()
-        //lastTapTime = 0 // 重置時間戳
-        //return
-   // }
-    //lastTapTime = currentTime
+    // 檢查是否有匯入的資料並決定要顯示哪個棟別的選項
+    let hasABData = scannedItems.contains { item in
+        if let building = item.building {
+            return building.contains("A") || building.contains("B")
+        }
+        return false
+    }
+    
+    let hasCDEData = scannedItems.contains { item in
+        if let building = item.building {
+            return building.contains("C") || building.contains("D") || building.contains("E")
+        }
+        return false
+    }
     
     // 保留長按手勢
     let longPress = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress))
     longPress.minimumPressDuration = 1.5
     exportButton?.addGestureRecognizer(longPress)
     
-    // 直接顯示棟別選擇
-    showBuildingSelectionAlert(sender)
+    // 如果只有一種棟別的資料，直接匯出那種棟別
+    if hasABData && !hasCDEData {
+        exportCSVForBuilding(.buildingAB)
+    } else if !hasABData && hasCDEData {
+        exportCSVForBuilding(.buildingCDE)
+    } else {
+        // 兩種都有或都沒有，顯示選擇對話框
+        showBuildingSelectionAlert(sender)
+    }
 }
 // 添加一個時間戳屬性用於雙擊檢測
 private var lastTapTime: TimeInterval = 0
@@ -1760,52 +1772,36 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
     
     // 新增顯示設定伺服器的彈出視窗方法
     private func showServerSettingsAlert() {
-         let alert = UIAlertController(title: "Sui-Yao API 設定", message: "請輸入伺服器資訊和管理員密碼", preferredStyle: .alert)
-    
-    alert.addTextField { textField in
-        textField.placeholder = "伺服器網址 (如 https://sui-yao.com)"
-        textField.keyboardType = .URL
-        textField.autocorrectionType = .no
-        textField.autocapitalizationType = .none
-    }
-    
-    alert.addTextField { textField in
-        textField.placeholder = "API 金鑰"
-        textField.text = NetworkManager.shared.apiKey
-        textField.autocorrectionType = .no
-        textField.autocapitalizationType = .none
-    }
-    
-    alert.addTextField { textField in
-        textField.placeholder = "檔案名稱"
-        textField.text = NetworkManager.shared.getFileName()
-        textField.autocorrectionType = .no
-        textField.autocapitalizationType = .none
-    }
-    
-    alert.addTextField { textField in
-        textField.placeholder = "管理員密碼"
-        textField.isSecureTextEntry = true
-    }
-    
-    let confirmAction = UIAlertAction(title: "確認", style: .default) { [weak self] _ in
-        guard let newURL = alert.textFields?[0].text,
-              let apiKey = alert.textFields?[1].text,
-              let fileName = alert.textFields?[2].text,
-              let password = alert.textFields?[3].text else { return }
-        
-        if NetworkManager.shared.updateSettings(newURL: newURL, newFileName: fileName, newAPIKey: apiKey, password: password) {
-            self?.showAlert(title: "成功", message: "伺服器設定已更新")
-        } else {
-            self?.showAlert(title: "錯誤", message: "密碼錯誤")
+        let alert = UIAlertController(title: "Sui-Yao API 設定", 
+                                  message: "請輸入管理員密碼",
+                                  preferredStyle: .alert)
+
+        alert.addTextField { textField in
+            textField.placeholder = "******"
+            textField.isSecureTextEntry = true
         }
+
+        let confirmAction = UIAlertAction(title: "確認", style: .default) { [weak self] _ in
+            guard let password = alert.textFields?[0].text else { return }
+            
+            // 只檢查密碼是否正確，不再提供URL和API金鑰的編輯功能
+            if password == "123456" { // 使用原本設定的管理員密碼
+                // 顯示設定已啟用的提示
+                self?.showAlert(title: "成功", message: "已啟用管理員權限")
+                
+                // 觸覺反饋
+                let generator = UIImpactFeedbackGenerator(style: .medium)
+                generator.impactOccurred()
+            } else {
+                self?.showAlert(title: "錯誤", message: "密碼錯誤")
+            }
+        }
+
+        alert.addAction(confirmAction)
+        alert.addAction(UIAlertAction(title: "取消", style: .cancel))
+
+        present(alert, animated: true)
     }
-    
-    alert.addAction(confirmAction)
-    alert.addAction(UIAlertAction(title: "取消", style: .cancel))
-    
-    present(alert, animated: true)
-}
      // 新增顯示載入中提示的方法
     private func showLoadingAlert(message: String) {
         let alert = UIAlertController(title: nil, message: message, preferredStyle: .alert)
@@ -1868,6 +1864,10 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
             // 用於記錄新添加的項目
             var newItems: [ScanItem] = []
             
+            // 判斷檔案是 AB 棟還是 CDE 棟
+            var isABBuilding = false
+            var isCDEBuilding = false
+            
             // 假設CSV的標題行為：條碼,棟別,戶別,車位號碼,車種,車牌,ETAG
             // 跳過標題行
             for row in rows.dropFirst() {
@@ -1889,6 +1889,15 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
                     
                     // 檢查是否有ETC條碼（第10列，索引為9）
                     let hasETCCode = columns.count > 9 && !columns[9].isEmpty
+                    
+                    // 判斷棟別
+                    let building = columns.count > 1 ? columns[1] : ""
+                    if building.contains("A") || building.contains("B") {
+                        isABBuilding = true
+                    }
+                    if building.contains("C") || building.contains("D") || building.contains("E") {
+                        isCDEBuilding = true
+                    }
                     
                     let newItem = ScanItem(
                         code: columns[0],  // 序號
@@ -1927,7 +1936,16 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
                     self.tableView?.reloadData()
                     CATransaction.commit()
                     
-                    self.showAlert(title: "成功", message: "已匯入 \(newItems.count) 筆資料")
+                    var buildingType = ""
+                    if isABBuilding && !isCDEBuilding {
+                        buildingType = "AB棟"
+                    } else if !isABBuilding && isCDEBuilding {
+                        buildingType = "CDE棟"
+                    } else if isABBuilding && isCDEBuilding {
+                        buildingType = "混合棟別"
+                    }
+                    
+                    self.showAlert(title: "成功", message: "已匯入 \(newItems.count) 筆\(buildingType)資料")
                 } else {
                     self.showAlert(title: "提示", message: "未找到有效的數據記錄")
                 }
