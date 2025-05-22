@@ -275,6 +275,8 @@ class NetworkManager {
         var request = URLRequest(url: url)
         request.setValue("application/json", forHTTPHeaderField: "Accept")
         request.setValue(apiKey, forHTTPHeaderField: "x-api-key")
+        // 設定更短的超時時間
+        request.timeoutInterval = 8.0
         
         let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
             if let error = error {
@@ -285,11 +287,25 @@ class NetworkManager {
             
             if let httpResponse = response as? HTTPURLResponse {
                 print("HTTP 狀態碼: \(httpResponse.statusCode)")
+                
+                // 如果不是成功的狀態碼，直接返回錯誤
+                if !(200...299).contains(httpResponse.statusCode) {
+                    completion(.failure(NSError(domain: "", code: httpResponse.statusCode, 
+                                               userInfo: [NSLocalizedDescriptionKey: "伺服器回應代碼: \(httpResponse.statusCode)"])))
+                    return
+                }
             }
             
             guard let data = data else {
                 print("沒有接收到數據")
                 completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "未接收到數據"])))
+                return
+            }
+            
+            // 如果數據為空，提前返回空數組
+            if data.isEmpty {
+                print("接收到空數據")
+                completion(.success([]))
                 return
             }
             
@@ -1245,8 +1261,29 @@ override func viewDidDisappear(_ animated: Bool) {
                     
                     // 獲取檔案列表
                     self.showLoadingAlert(message: "正在獲取檔案列表...")
-                    NetworkManager.shared.fetchFileList { result in
+                    
+                    // 設置計時器，防止長時間卡住
+                    var timeoutTimer: Timer?
+                    timeoutTimer = Timer.scheduledTimer(withTimeInterval: 10.0, repeats: false) { [weak self] _ in
                         DispatchQueue.main.async {
+                            guard let self = self else { return }
+                            
+                            // 檢查是否仍在顯示加載提示
+                            if let presentedVC = self.presentedViewController as? UIAlertController,
+                               presentedVC.message?.contains("正在獲取檔案列表") == true {
+                                self.dismissLoadingAlert()
+                                self.showAlert(title: "連接超時", message: "獲取檔案列表超時，請檢查網路連接後重試")
+                            }
+                        }
+                    }
+                    
+                    NetworkManager.shared.fetchFileList { [weak self] result in
+                        // 停止計時器
+                        timeoutTimer?.invalidate()
+                        timeoutTimer = nil
+                        
+                        DispatchQueue.main.async {
+                            guard let self = self else { return }
                             self.dismissLoadingAlert()
                             
                             switch result {
