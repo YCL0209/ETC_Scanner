@@ -36,8 +36,6 @@ class EditDetailViewController: UIViewController, UITextFieldDelegate {
                 return .numberPad
             case viewController.parkingNumberTextField:
                 return .numberPad
-            case viewController.carTypeTextField:
-                return .default
             case viewController.carNumberTextField:
                 return .asciiCapable
             case viewController.etagNumberTextField:
@@ -80,8 +78,6 @@ class EditDetailViewController: UIViewController, UITextFieldDelegate {
             case viewController.householdTextField:
                 return viewController.parkingNumberTextField
             case viewController.parkingNumberTextField:
-                return viewController.carTypeTextField
-            case viewController.carTypeTextField:
                 return viewController.carNumberTextField
             case viewController.carNumberTextField:
                 return viewController.etagNumberTextField
@@ -90,7 +86,8 @@ class EditDetailViewController: UIViewController, UITextFieldDelegate {
             }
         }
     }
-    
+    // 1. 在類的頂部添加車種選項數組
+    private let carTypes = ["汽車", "機車"]
     // 添加 KeyboardRules 實例
     private lazy var keyboardRules: KeyboardRules = {
         return KeyboardRules(self)
@@ -100,7 +97,7 @@ class EditDetailViewController: UIViewController, UITextFieldDelegate {
     @IBOutlet weak var buildingTextField: UITextField!      // 棟別
     @IBOutlet weak var householdTextField: UITextField!     // 戶別
     @IBOutlet weak var parkingNumberTextField: UITextField! // 車位號碼
-    @IBOutlet weak var carTypeTextField: UITextField!       // 車種
+    @IBOutlet var carTypeSegmentControl: UISegmentedControl!
     @IBOutlet weak var carNumberTextField: UITextField!     // 車牌
     @IBOutlet weak var etagNumberTextField: UITextField!    // ETAG
     @IBOutlet weak var saveButton: UIButton!
@@ -168,6 +165,8 @@ class EditDetailViewController: UIViewController, UITextFieldDelegate {
                                               object: nil)
 
         print("EditDetailViewController viewDidLoad 完成")
+        // 設置車種分段控制器
+        setupCarTypeSegmentControl()
     }
 
     override func viewWillAppear(_ animated: Bool) {
@@ -266,7 +265,6 @@ class EditDetailViewController: UIViewController, UITextFieldDelegate {
         buildingTextField.text = currentBuilding
         householdTextField.text = currentHousehold
         parkingNumberTextField.text = currentParkingNumber
-        carTypeTextField.text = currentCarType
         carNumberTextField.text = currentCarNumber
         etagNumberTextField.text = currentEtagNumber
     }
@@ -276,7 +274,6 @@ class EditDetailViewController: UIViewController, UITextFieldDelegate {
             buildingTextField,
             householdTextField,
             parkingNumberTextField,
-            carTypeTextField,
             carNumberTextField,
             etagNumberTextField
         ]
@@ -341,6 +338,16 @@ class EditDetailViewController: UIViewController, UITextFieldDelegate {
             showAlert(message: "請輸入車牌號碼")
             return
         }
+        // 從文本字段獲取最新值
+         currentBuilding = buildingTextField.text ?? ""
+         currentHousehold = householdTextField.text ?? ""
+         currentParkingNumber = parkingNumberTextField.text ?? ""
+         currentCarNumber = carNumberTextField.text ?? ""
+         currentEtagNumber = etagNumberTextField.text ?? ""
+    
+    // 從分段控制器獲取車種值
+         let selectedIndex = carTypeSegmentControl.selectedSegmentIndex
+         currentCarType = selectedIndex >= 0 ? carTypes[selectedIndex] : "汽車"
         
         // 通知代理更新資料
         delegate?.didUpdateDetails(
@@ -393,7 +400,7 @@ class EditDetailViewController: UIViewController, UITextFieldDelegate {
             activeTextField = nil
         }
     }
-@objc func textFieldDidChange(_ textField: UITextField) {
+    @objc func textFieldDidChange(_ textField: UITextField) {
         switch textField {
         case buildingTextField:
             currentBuilding = textField.text ?? ""
@@ -401,8 +408,6 @@ class EditDetailViewController: UIViewController, UITextFieldDelegate {
             currentHousehold = textField.text ?? ""
         case parkingNumberTextField:
             currentParkingNumber = textField.text ?? ""
-        case carTypeTextField:
-            currentCarType = textField.text ?? ""
         case carNumberTextField:
             currentCarNumber = textField.text ?? ""
         case etagNumberTextField:
@@ -427,7 +432,38 @@ class EditDetailViewController: UIViewController, UITextFieldDelegate {
             self?.ensureTextFieldIsFocused()
         }
     }
+   // 3. 添加設置分段控制器的方法
+    private func setupCarTypeSegmentControl() {
+    // 設置初始選中項
+    if currentCarType == "機車" {
+        carTypeSegmentControl.selectedSegmentIndex = 1
+    } else {
+        // 預設為汽車
+        carTypeSegmentControl.selectedSegmentIndex = 0
+        
+        // 如果當前值不是「汽車」也不是空值，記錄日誌
+        if !currentCarType.isEmpty && currentCarType != "汽車" {
+            print("注意：當前車種「\(currentCarType)」不是標準值，已設置為「汽車」")
+            currentCarType = "汽車"
+        } else if currentCarType.isEmpty {
+            // 如果為空，設為汽車
+            currentCarType = "汽車"
+        }
+    }
+    
+    // 添加值變更事件
+    carTypeSegmentControl.addTarget(self, action: #selector(carTypeChanged), for: .valueChanged)
+}
 
+// 4. 添加處理車種變更的方法
+    @objc private func carTypeChanged() {
+    let selectedIndex = carTypeSegmentControl.selectedSegmentIndex
+    currentCarType = carTypes[selectedIndex]
+    
+    // 可選：添加觸覺反饋
+    let generator = UIImpactFeedbackGenerator(style: .light)
+    generator.impactOccurred()
+}
 }
     
 

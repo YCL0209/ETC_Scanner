@@ -332,7 +332,7 @@ class NetworkManager {
                 // 如果使用 JSONDecoder 失敗，嘗試手動解析
                 do {
                     if let jsonDict = try JSONSerialization.jsonObject(with: data) as? [String: Any],
-                       let success = jsonDict["success"] as? Bool,
+                       let _ = jsonDict["success"] as? Bool,
                        let filesArray = jsonDict["files"] as? [[String: Any]] {
                         
                         // 手動將字典轉換為 FileInfo 物件
@@ -1519,6 +1519,12 @@ private enum Building: String, CaseIterable {
 }
 // 6. 匯出按鈕動作
 @IBAction func exportButtonTapped(_ sender: UIButton) {
+    // 檢查是否有任何資料可匯出
+    if scannedItems.isEmpty {
+        showAlert(title: "無法匯出", message: "沒有資料可匯出，請先匯入或掃描資料。")
+        return
+    }
+    
     // 檢查是否有匯入的資料並決定要顯示哪個棟別的選項
     let hasABData = scannedItems.contains { item in
         if let building = item.building {
@@ -1603,6 +1609,30 @@ private func showBuildingSelectionAlert(_ sender: UIButton) {
 }
 
 private func exportCSVForBuilding(_ building: Building) {
+    // 先過濾該棟別的資料
+    let filteredItems = scannedItems.filter { item in
+        if let itemBuilding = item.building {
+            // 店面資料應該包含在兩個檔案中
+            if itemBuilding.contains("店面") {
+                return true
+            }
+            
+            switch building {
+            case .buildingAB:
+                return itemBuilding.contains("A") || itemBuilding.contains("B")
+            case .buildingCDE:
+                return itemBuilding.contains("C") || itemBuilding.contains("D") || itemBuilding.contains("E")
+            }
+        }
+        return false
+    }
+    
+    // 檢查過濾後是否有資料
+    if filteredItems.isEmpty {
+        showAlert(title: "無法匯出", message: "\(building.rawValue)沒有資料可匯出。")
+        return
+    }
+    
     // 不再需要加入時間戳，伺服器會自動加上
     // 直接使用簡單的檔名
     let fileName = "ETC_\(building.filenameSuffix)棟資料.csv"
@@ -1643,10 +1673,6 @@ private func uploadWithSimpleFileName(content: String, fileName: String, for bui
     request.httpMethod = "POST"
     request.setValue("multipart/form-data; boundary=\(boundary)", forHTTPHeaderField: "Content-Type")
     request.setValue(NetworkManager.shared.apiKey, forHTTPHeaderField: "x-api-key")
-    
-    // 正確處理檔名編碼 - RFC 2231 和 RFC 5987 規範
-    let filenameEncoded = originalFileName
-        .addingPercentEncoding(withAllowedCharacters: .urlPathAllowed) ?? originalFileName
     
     // 建立正確格式的 multipart/form-data 內容
     var data = Data()
@@ -2106,7 +2132,7 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
     // 每次都顯示說明，不檢查是否首次啟動
     let alert = UIAlertController(
         title: "使用說明",
-        message: "1. APP使用前需先接上HID設備，編輯功能才能正常使用。\n\n2. 網路功能使用Sui-Yao API，請確保網路正常並設定正確的API金鑰。\n\n3. 如需更改API設定，請長按匯出按鈕進入設定頁面。",
+        message: "1. APP使用前需先接上HID設備，編輯功能才能正常使用。\n\n2. 網路功能使用Sui-Yao API，請確保網路正常並設定正確的API金鑰。",
         preferredStyle: .alert
     )
     
