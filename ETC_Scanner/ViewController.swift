@@ -12,7 +12,7 @@ import AudioToolbox
 // MARK: - Properties
 struct ScanItem {
     let code: String           //掃描碼
-    let time: String
+    var time: String
     var building: String?      // 棟別
     var household: String?     // 戶別
     var parkingNumber: String? // 車位號碼
@@ -87,6 +87,17 @@ class NetworkManager {
     
     private var fileName: String = "住戶ETC資料.csv" // 預設檔案名稱
     private let adminPassword = "123456" // 設定管理員密碼
+    
+    // 在 NetworkManager 類中添加
+    private var _emailServerURL: String = "https://script.google.com/macros/s/AKfycbwjOkNFAyT-NyHjF4UnXE9slV-SjujYKuN98DQGqoJSUxxpYC9rnqrxLCG4j-kmS7iISQ/exec"
+    var emailServerURL: String {
+        get {
+            return UserDefaults.standard.string(forKey: "emailServerURL") ?? _emailServerURL
+        }
+        set {
+            UserDefaults.standard.set(newValue, forKey: "emailServerURL")
+        }
+    }
     
     private init() {}
 
@@ -742,8 +753,6 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
         resetButtonState(sender)
     }
     
-    
-    
     private func resetButtonState(_ button: UIButton) {
         UIView.animate(withDuration: 0.1) {
             button.transform = .identity
@@ -887,6 +896,7 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     
     print("TableView 設置完成")
 }
+
     // 將編輯視圖控制器的顯示邏輯移到獨立的方法中
     private func showEditViewController(for index: Int) {
          print("有沒有執行scannerTextField釋放焦點")
@@ -1010,32 +1020,47 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     }
     
     func tableView(_ tableView: UITableView, didSelectRowAt indexPath: IndexPath) {
+        var isCurrentlySelected = false
+        var targetIndex: Int? = nil
+        
+        // 檢查點擊的項目是否已經被選中
+        if isSearching {
+            let selectedItem = filteredItems[indexPath.row]
+            isCurrentlySelected = selectedItem.isSelected
+            targetIndex = scannedItems.firstIndex(where: { $0.code == selectedItem.code && $0.time == selectedItem.time })
+        } else {
+            isCurrentlySelected = scannedItems[indexPath.row].isSelected
+            targetIndex = indexPath.row
+        }
+        
         // 取消所有項目的選擇
         for i in 0..<scannedItems.count {
             scannedItems[i].isSelected = false
         }
-         // 同時清除過濾項目的選擇狀態
+        // 同時清除過濾項目的選擇狀態
         for i in 0..<filteredItems.count {
             filteredItems[i].isSelected = false
         }
-    
         
-        if isSearching {
-        // 在搜尋模式下
-        let selectedItem = filteredItems[indexPath.row]
-        if let originalIndex = scannedItems.firstIndex(where: { $0.code == selectedItem.code && $0.time == selectedItem.time }) {
-            // 更新原始資料中的選擇狀態
-            scannedItems[originalIndex].isSelected = true
-            selectedItemIndex = originalIndex
-            
-            // 更新過濾資料中的選擇狀態
-            filteredItems[indexPath.row].isSelected = true
+        // 如果點擊的項目原本未被選中，則選中它
+        if !isCurrentlySelected, let index = targetIndex {
+            if isSearching {
+                // 在搜尋模式下
+                scannedItems[index].isSelected = true
+                selectedItemIndex = index
+                
+                // 更新過濾資料中的選擇狀態
+                filteredItems[indexPath.row].isSelected = true
+            } else {
+                // 非搜尋模式下
+                scannedItems[index].isSelected = true
+                selectedItemIndex = index
+            }
+        } else {
+            // 如果點擊的是已選中的項目，則取消選擇
+            selectedItemIndex = nil
         }
-          } else {
-        // 非搜尋模式下
-        scannedItems[indexPath.row].isSelected = true
-        selectedItemIndex = indexPath.row
-    }
+        
         // 更新按鈕狀態
         updateButtonStates()
         // 重新加載表格以更新顯示
@@ -1060,66 +1085,193 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     // 處理掃描結果的方法
     private func handleScanResult(epcCode: String) {
         print("handleScanResult 被呼叫，epcCode: \(epcCode)")
+        
+        // 先檢查是否有重複的條碼（排除當前選中的項目）
+        var duplicateIndex: Int? = nil
+        for (index, item) in scannedItems.enumerated() {
+            // 檢查 code 或 etagNumber 是否與掃描的條碼相同
+            if (item.code == epcCode || item.etagNumber == epcCode) {
+                // 如果是當前選中的項目，跳過
+                if let selectedIndex = selectedItemIndex, index == selectedIndex {
+                    continue
+                }
+                duplicateIndex = index
+                break
+            }
+        }
+        
         if let selectedIndex = selectedItemIndex {
-            // 更新選中項目的 ETAG
+            // 有選中的項目
             print("更新選中項目 \(selectedIndex) 的 ETAG：\(epcCode)")
             
-            var updatedItem = scannedItems[selectedIndex]
-            updatedItem.etagNumber = epcCode
-            updatedItem.isEdited = true
-            scannedItems[selectedIndex] = updatedItem
-            
-            // 更新 UI
-            DispatchQueue.main.async {
-                self.tableView?.reloadRows(at: [IndexPath(row: selectedIndex, section: 0)], with: .automatic)
-                self.showAlert(title: "更新成功", message: "ETC 標籤已更新")
-                self.resetScanner(complete: true)
+            // 如果發現重複（不是當前選中的項目）
+            if let dupIndex = duplicateIndex {
+                DispatchQueue.main.async {
+                    let existingItem = self.scannedItems[dupIndex]
+                    let message = """
+                    此條碼已存在於其他資料中：
+                    棟別：\(existingItem.building ?? "")
+                    戶別：\(existingItem.household ?? "")
+                    車位：\(existingItem.parkingNumber ?? "")
+                    
+                    是否要繼續更新當前選中的項目？
+                    """
+                    
+                    let alert = UIAlertController(title: "發現重複條碼", message: message, preferredStyle: .alert)
+                    
+                    // 繼續更新選項
+                    alert.addAction(UIAlertAction(title: "繼續更新", style: .destructive) { _ in
+                        self.updateSelectedItem(at: selectedIndex, with: epcCode)
+                    })
+                    
+                    // 取消選項
+                    alert.addAction(UIAlertAction(title: "取消", style: .cancel) { _ in
+                        self.resetScanner(complete: true)
+                    })
+                    
+                    self.present(alert, animated: true)
+                }
+            } else {
+                // 沒有重複，直接更新
+                updateSelectedItem(at: selectedIndex, with: epcCode)
             }
         } else {
-            // 創建新項目
-            print("創建新的掃描項目")
-            
-            let dateFormatter = DateFormatter()
-            dateFormatter.dateFormat = "yyyy/MM/dd HH:mm:ss"
-            let timeString = dateFormatter.string(from: Date())
-            
-            let newItem = ScanItem(
-                code: epcCode,
-                time: timeString,
-                building: "",
-                household: "",
-                parkingNumber: "",
-                carType: "",
-                carNumber: "",
-                etagNumber: epcCode,
-                isEdited: false,
-                isSelected: false
-            )
-            
-            // 添加到數據源並更新 UI
-            DispatchQueue.main.async {
-                self.scannedItems.insert(newItem, at: 0)
-                self.tableView?.reloadData()
-                
-                // 自動選中新項目
-                if !self.scannedItems.isEmpty, let tableView = self.tableView {
-                    let indexPath = IndexPath(row: 0, section: 0)
-                    tableView.scrollToRow(at: indexPath, at: .top, animated: true)
+            // 檢查是否已存在相同的條碼（檢查 code 或 etagNumber）
+            if let existingIndex = scannedItems.firstIndex(where: { $0.code == epcCode || $0.etagNumber == epcCode }) {
+                // 找到重複的條碼，顯示確認對話框
+                DispatchQueue.main.async {
+                    let existingItem = self.scannedItems[existingIndex]
+                    let message = """
+                    此條碼已存在於資料中：
+                    棟別：\(existingItem.building ?? "")
+                    戶別：\(existingItem.household ?? "")
+                    車位：\(existingItem.parkingNumber ?? "")
                     
-                    for i in 0..<self.scannedItems.count {
-                        self.scannedItems[i].isSelected = (i == 0)
-                    }
-                    self.selectedItemIndex = 0
-                    tableView.reloadData()
+                    是否要覆蓋現有資料？
+                    """
                     
-                    self.showAlert(title: "新建項目", message: "已新建 ETC 項目，請點擊編輯按鈕完成其餘資料")
+                    let alert = UIAlertController(title: "發現重複條碼", message: message, preferredStyle: .alert)
+                    
+                    // 覆蓋選項
+                    alert.addAction(UIAlertAction(title: "覆蓋", style: .destructive) { _ in
+                        // 覆蓋現有項目
+                        let dateFormatter = DateFormatter()
+                        dateFormatter.dateFormat = "yyyy/MM/dd HH:mm:ss"
+                        let timeString = dateFormatter.string(from: Date())
+                        
+                        var updatedItem = self.scannedItems[existingIndex]
+                        updatedItem.time = timeString
+                        updatedItem.isEdited = true
+                        self.scannedItems[existingIndex] = updatedItem
+                        
+                        // 移動到最前面
+                        self.scannedItems.remove(at: existingIndex)
+                        self.scannedItems.insert(updatedItem, at: 0)
+                        
+                        self.tableView?.reloadData()
+                        
+                        // 自動選中覆蓋的項目
+                        if let tableView = self.tableView {
+                            let indexPath = IndexPath(row: 0, section: 0)
+                            tableView.scrollToRow(at: indexPath, at: .top, animated: true)
+                            
+                            for i in 0..<self.scannedItems.count {
+                                self.scannedItems[i].isSelected = (i == 0)
+                            }
+                            self.selectedItemIndex = 0
+                            tableView.reloadData()
+                        }
+                        
+                        self.showAlert(title: "已覆蓋", message: "已更新現有條碼資料")
+                        self.resetScanner(complete: true)
+                    })
+                    
+                    // 取消選項
+                    alert.addAction(UIAlertAction(title: "取消", style: .cancel) { _ in
+                        self.resetScanner(complete: true)
+                    })
+                    
+                    self.present(alert, animated: true)
                 }
+            } else {
+                // 創建新項目
+                print("創建新的掃描項目")
                 
-                self.resetScanner(complete: true)
+                let dateFormatter = DateFormatter()
+                dateFormatter.dateFormat = "yyyy/MM/dd HH:mm:ss"
+                let timeString = dateFormatter.string(from: Date())
+                
+                let newItem = ScanItem(
+                    code: epcCode,
+                    time: timeString,
+                    building: "",
+                    household: "",
+                    parkingNumber: "",
+                    carType: "",
+                    carNumber: "",
+                    etagNumber: epcCode,
+                    isEdited: false,
+                    isSelected: false
+                )
+                
+                // 添加到數據源並更新 UI
+                DispatchQueue.main.async {
+                    self.scannedItems.insert(newItem, at: 0)
+                    self.tableView?.reloadData()
+                    
+                    // 自動選中新項目
+                    if !self.scannedItems.isEmpty, let tableView = self.tableView {
+                        let indexPath = IndexPath(row: 0, section: 0)
+                        tableView.scrollToRow(at: indexPath, at: .top, animated: true)
+                        
+                        for i in 0..<self.scannedItems.count {
+                            self.scannedItems[i].isSelected = (i == 0)
+                        }
+                        self.selectedItemIndex = 0
+                        tableView.reloadData()
+                        
+                        self.showAlert(title: "新建項目", message: "已新建 ETC 項目，請點擊編輯按鈕完成其餘資料")
+                    }
+                    
+                    self.resetScanner(complete: true)
+                }
             }
         }
     }
 
+    // 更新選中項目的方法
+    private func updateSelectedItem(at index: Int, with epcCode: String) {
+        var updatedItem = scannedItems[index]
+        updatedItem.etagNumber = epcCode
+        updatedItem.isEdited = true
+        scannedItems[index] = updatedItem
+        
+        // 如果在搜尋模式，也要更新 filteredItems
+        if isSearching {
+            if let filteredIndex = filteredItems.firstIndex(where: { $0.code == updatedItem.code && $0.time == updatedItem.time }) {
+                filteredItems[filteredIndex] = updatedItem
+            }
+        }
+        
+        // 更新 UI
+        DispatchQueue.main.async {
+            if self.isSearching {
+                // 在搜尋模式下，找到正確的顯示索引
+                if let displayIndex = self.filteredItems.firstIndex(where: { $0.code == updatedItem.code && $0.time == updatedItem.time }) {
+                    self.tableView?.reloadRows(at: [IndexPath(row: displayIndex, section: 0)], with: .automatic)
+                } else {
+                    // 如果找不到，重新載入整個表格
+                    self.tableView?.reloadData()
+                }
+            } else {
+                // 非搜尋模式，直接使用 index
+                self.tableView?.reloadRows(at: [IndexPath(row: index, section: 0)], with: .automatic)
+            }
+            self.showAlert(title: "更新成功", message: "ETC 標籤已更新")
+            self.resetScanner(complete: true)
+        }
+    }
+    
     // 清除掃描狀態的方法
     private func resetScanner(complete: Bool = false) {
         scannerTextField.text = ""
@@ -1525,35 +1677,87 @@ private enum Building: String, CaseIterable {
         return
     }
     
-    // 檢查是否有匯入的資料並決定要顯示哪個棟別的選項
-    let hasABData = scannedItems.contains { item in
-        if let building = item.building {
-            return building.contains("A") || building.contains("B")
+    // 顯示操作選項
+    let alert = UIAlertController(title: "選擇操作", 
+                                message: "請選擇要執行的操作", 
+                                preferredStyle: .actionSheet)
+    
+    // 匯出到伺服器選項
+    let exportAction = UIAlertAction(title: "匯出到伺服器", style: .default) { [weak self] _ in
+        // 檢查是否有匯入的資料並決定要顯示哪個棟別的選項
+        let hasABData = self?.scannedItems.contains { item in
+            if let building = item.building {
+                return building.contains("A") || building.contains("B")
+            }
+            return false
+        } ?? false
+        
+        let hasCDEData = self?.scannedItems.contains { item in
+            if let building = item.building {
+                return building.contains("C") || building.contains("D") || building.contains("E")
+            }
+            return false
+        } ?? false
+        
+        // 如果只有一種棟別的資料，直接匯出那種棟別
+        if hasABData && !hasCDEData {
+            self?.exportCSVForBuilding(.buildingAB)
+        } else if !hasABData && hasCDEData {
+            self?.exportCSVForBuilding(.buildingCDE)
+        } else {
+            // 兩種都有或都沒有，顯示選擇對話框
+            self?.showBuildingSelectionAlert(sender)
         }
-        return false
     }
     
-    let hasCDEData = scannedItems.contains { item in
-        if let building = item.building {
-            return building.contains("C") || building.contains("D") || building.contains("E")
+    // 發送電子郵件選項（修改為直接發送所有資料）
+    let emailAction = UIAlertAction(title: "發送電子郵件", style: .default) { [weak self] _ in
+        guard let self = self else { return }
+        
+        // 確認是否要發送所有資料
+        let confirmAlert = UIAlertController(title: "確認發送",
+                                           message: "您確定要發送所有 \(self.scannedItems.count) 筆資料嗎？",
+                                           preferredStyle: .alert)
+        
+        let confirmAction = UIAlertAction(title: "確定", style: .default) { [weak self] _ in
+            guard let self = self else { return }
+            
+            // 使用 EmailManager 顯示發送所有資料對話框
+            EmailManager.shared.showSendAllDataDialog(on: self, allItems: self.scannedItems) { success, message in
+                if success {
+                    self.showAlert(title: "成功", message: message ?? "郵件發送成功")
+                } else {
+                    self.showAlert(title: "發送失敗", message: message ?? "郵件發送失敗")
+                }
+            }
         }
-        return false
+        
+        let cancelConfirmAction = UIAlertAction(title: "取消", style: .cancel)
+        
+        confirmAlert.addAction(confirmAction)
+        confirmAlert.addAction(cancelConfirmAction)
+        
+        self.present(confirmAlert, animated: true)
     }
+    
+    let cancelAction = UIAlertAction(title: "取消", style: .cancel)
+    
+    alert.addAction(exportAction)
+    alert.addAction(emailAction)
+    alert.addAction(cancelAction)
+    
+    // iPad 需要設置 popoverPresentationController
+    if let popover = alert.popoverPresentationController {
+        popover.sourceView = sender
+        popover.sourceRect = sender.bounds
+    }
+    
+    present(alert, animated: true)
     
     // 保留長按手勢
     let longPress = UILongPressGestureRecognizer(target: self, action: #selector(handleLongPress))
     longPress.minimumPressDuration = 1.5
     exportButton?.addGestureRecognizer(longPress)
-    
-    // 如果只有一種棟別的資料，直接匯出那種棟別
-    if hasABData && !hasCDEData {
-        exportCSVForBuilding(.buildingAB)
-    } else if !hasABData && hasCDEData {
-        exportCSVForBuilding(.buildingCDE)
-    } else {
-        // 兩種都有或都沒有，顯示選擇對話框
-        showBuildingSelectionAlert(sender)
-    }
 }
 // 添加一個時間戳屬性用於雙擊檢測
 private var lastTapTime: TimeInterval = 0
@@ -1920,9 +2124,21 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
     DispatchQueue.global(qos: .userInitiated).async { [weak self] in
         do {
             let csvContent = try String(contentsOf: url, encoding: .utf8)
-            // 過濾掉空行並分割
-            let rows = csvContent.components(separatedBy: .newlines)
-                .filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            print("CSV檔案內容長度: \(csvContent.count) 字符")
+            
+            // 改進行分割邏輯，處理各種換行符和檔案末尾情況
+            var rows = csvContent.components(separatedBy: .newlines)
+            
+            // 如果檔案末尾沒有換行符，確保最後一行不被遺漏
+            if let lastRow = rows.last, !lastRow.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                print("檔案末尾沒有換行符，最後一行: '\(lastRow)'")
+            }
+            
+            // 過濾掉空行
+            rows = rows.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            
+            print("=== CSV解析開始 ===")
+            print("總行數: \(rows.count)")
             
             // 用於記錄新添加的項目
             var newItems: [ScanItem] = []
@@ -1933,16 +2149,32 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
             
             // 假設CSV的標題行為：條碼,棟別,戶別,車位號碼,車種,車牌,ETAG
             // 跳過標題行
-            for row in rows.dropFirst() {
+            for (index, row) in rows.dropFirst().enumerated() {
+                let actualRowNumber = index + 2  // +2 因為跳過標題行且從1開始計數
+                
                 // 檢查當前線程是否應該取消操作 (如果 self 已被釋放)
-                guard self != nil else { break }
+                guard self != nil else { 
+                    print("❌ Self已被釋放，中斷解析")
+                    break 
+                }
                 
                 // 移除多餘的空白
                 let trimmedRow = row.trimmingCharacters(in: .whitespacesAndNewlines)
-                guard !trimmedRow.isEmpty else { continue }
+                guard !trimmedRow.isEmpty else { 
+                    print("⚠️  第\(actualRowNumber)行：空行，跳過")
+                    continue 
+                }
                 
                 let columns = trimmedRow.components(separatedBy: ",")
                     .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                
+                print("🔍 第\(actualRowNumber)行解析：columns.count=\(columns.count)")
+                if columns.count >= 1 {
+                    print("   序號: '\(columns[0])'")
+                    if columns.count > 1 {
+                        print("   棟別: '\(columns[1])'")
+                    }
+                }
                 
                 // 確保至少有ETC條碼欄位
                 if columns.count >= 1 && !columns[0].isEmpty {
@@ -1979,7 +2211,19 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
                     )
                     
                     newItems.append(newItem)
+                    print("✅ 第\(actualRowNumber)行：成功添加項目 (序號:\(columns[0]), 棟別:\(building))")
+                } else {
+                    print("❌ 第\(actualRowNumber)行：跳過 (columns.count=\(columns.count), isEmpty=\(columns.isEmpty ? true : columns[0].isEmpty))")
                 }
+            }
+            
+            print("=== CSV解析結束 ===")
+            print("解析到的項目數量: \(newItems.count)")
+            
+            // 如果解析到的項目數量與預期不符，顯示詳細資訊
+            let expectedCount = rows.count - 1 // 減去標題行
+            if newItems.count != expectedCount {
+                print("⚠️  解析結果異常: 預期\(expectedCount)筆，實際\(newItems.count)筆")
             }
             
             // 回到主線程更新UI
@@ -2008,9 +2252,15 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
                         buildingType = "混合棟別"
                     }
                     
-                    self.showAlert(title: "成功", message: "已匯入 \(newItems.count) 筆\(buildingType)資料")
+                    let message = "已匯入 \(newItems.count) 筆\(buildingType)資料"
+                    if newItems.count != expectedCount {
+                        let detailedMessage = "\(message)\n\n⚠️ 注意：檔案共\(expectedCount)行資料，但只成功匯入\(newItems.count)筆"
+                        self.showAlert(title: "部分成功", message: detailedMessage)
+                    } else {
+                        self.showAlert(title: "成功", message: message)
+                    }
                 } else {
-                    self.showAlert(title: "提示", message: "未找到有效的數據記錄")
+                    self.showAlert(title: "提示", message: "未找到有效的數據記錄\n\n檔案共有\(rows.count)行（包含標題）")
                 }
             }
             
@@ -2036,16 +2286,21 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
         
         // 嘗試方法 1：查找 "EPC Code:" 行
         let lines = scanResult.components(separatedBy: .newlines)
-        for line in lines {
+        print("掃描結果分行數：\(lines.count)")
+        for (index, line) in lines.enumerated() {
+            print("第\(index)行: \(line)")
             if line.contains("EPC Code:") || line.contains("EPC Code：") {
+                print("找到 EPC Code 行")
                 // 可能出現中文全形冒號
                 let components = line.components(separatedBy: ":")
                 if components.count > 1 {
                     // 提取 EPC Code 部分並清理
                     var epcCode = components[1].trimmingCharacters(in: .whitespacesAndNewlines)
+                    print("提取前的 EPC Code: \(epcCode)")
                     
                     // 過濾非英數字符並轉為大寫
                     epcCode = epcCode.filter { $0.isLetter || $0.isNumber }.uppercased()
+                    print("過濾後的 EPC Code: \(epcCode)")
                     
                     return epcCode
                 } else {
@@ -2103,12 +2358,15 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
 
     private func handleScanCompletion(_ fullScan: String) {
     print("處理掃描結果：\(fullScan)")
+    print("=== 開始提取 EPC Code ===")
     
     if let epcCode = extractEPCCode(from: fullScan)?.uppercased(), !epcCode.isEmpty {
         print("提取的 EPC 碼：\(epcCode)")
         handleScanResult(epcCode: epcCode)
     } else {
         print("無法提取有效的 EPC 碼")
+        print("原始掃描資料：")
+        print(fullScan)
         showAlert(title: "掃描錯誤", message: "無法識別有效的 EPC 碼")
         resetScanner(complete: true)
     }
@@ -2132,7 +2390,7 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
     // 每次都顯示說明，不檢查是否首次啟動
     let alert = UIAlertController(
         title: "使用說明",
-        message: "1. APP使用前需先接上HID設備，編輯功能才能正常使用。\n\n2. 網路功能使用Sui-Yao API，請確保網路正常並設定正確的API金鑰。",
+        message: "1. APP使用前需先接上HID設備，編輯功能才能正常使用。\n\n2. 網路功能使用Sui-Yao API，請確保網路正常。",
         preferredStyle: .alert
     )
     
@@ -2308,6 +2566,16 @@ extension UIImage {
         return UIGraphicsGetImageFromCurrentImageContext()
     }
 }
+
+// 在 NetworkManager 類的末尾添加此擴展
+//extension NetworkManager {
+    // 使 getBaseURL 方法公開，讓 EmailManager 可以使用
+  //  func getBaseURL() -> String {
+    //    let url = serverURL.hasSuffix("/") ? String(serverURL.dropLast()) : serverURL
+      //  print("使用伺服器 URL: \(url)")
+        //return url
+    //}
+//}
 
 
 
