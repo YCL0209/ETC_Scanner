@@ -2124,7 +2124,18 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
     DispatchQueue.global(qos: .userInitiated).async { [weak self] in
         do {
             let csvContent = try String(contentsOf: url, encoding: .utf8)
-            print("CSV檔案內容長度: \(csvContent.count) 字符")
+            
+            // 🔍 階段1：檢查原始檔案讀取
+            print("📄 CSV檔案讀取完成")
+            print("   檔案大小: \(csvContent.count) 字符")
+            print("   檔案最後100字符: '\(String(csvContent.suffix(100)))'")
+            let allLines = csvContent.components(separatedBy: .newlines)
+            print("   檔案原始總行數: \(allLines.count)")
+            print("   檔案最後10行:")
+            for (i, line) in allLines.suffix(10).enumerated() {
+                let lineNumber = allLines.count - 10 + i
+                print("     行\(lineNumber): '\(line)'")
+            }
             
             // 改進行分割邏輯，處理各種換行符和檔案末尾情況
             var rows = csvContent.components(separatedBy: .newlines)
@@ -2134,11 +2145,45 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
                 print("檔案末尾沒有換行符，最後一行: '\(lastRow)'")
             }
             
-            // 過濾掉空行
+            // 🔍 階段2：檢查行分割結果
+            print("📋 行分割結果")
+            print("   分割後總行數: \(rows.count)")
+            print("   最後5行原始內容:")
+            for (i, row) in rows.suffix(5).enumerated() {
+                let lineNumber = rows.count - 5 + i
+                print("     行\(lineNumber): '\(row)'")
+            }
+            
+            // 🔍 階段3：檢查空行過濾影響
+            let originalRowCount = rows.count
             rows = rows.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            print("🔧 空行過濾結果")
+            print("   過濾前: \(originalRowCount) 行")
+            print("   過濾後: \(rows.count) 行")
+            print("   被過濾的行數: \(originalRowCount - rows.count)")
+            if originalRowCount != rows.count {
+                print("   被過濾的行:")
+                let allRows = csvContent.components(separatedBy: .newlines)
+                for (i, row) in allRows.enumerated() {
+                    if row.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
+                        print("     空行\(i + 1): '\(row)'")
+                    }
+                }
+            }
             
             print("=== CSV解析開始 ===")
             print("總行數: \(rows.count)")
+            
+            // 🔍 階段4：檢查實際進入循環的行數
+            print("🔄 準備進入解析循環")
+            print("   跳過標題行後剩餘: \(rows.count - 1) 行")
+            print("   預期處理行號: 2 到 \(rows.count)")
+            print("   標題行內容: '\(rows.first ?? "")'")
+            print("   準備處理的最後5行:")
+            for (i, row) in rows.dropFirst().suffix(5).enumerated() {
+                let actualIndex = rows.count - 5 + i
+                print("     準備處理行\(actualIndex + 1): '\(row)'")
+            }
             
             // 用於記錄新添加的項目
             var newItems: [ScanItem] = []
