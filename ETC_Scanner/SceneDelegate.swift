@@ -29,24 +29,15 @@ class SceneDelegate: UIResponder, UIWindowSceneDelegate {
             
             // 延遲後切換到主視圖控制器
             DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                print("SceneDelegate: 準備切換到主視圖控制器")
-                
                 let storyboard = UIStoryboard(name: "Main", bundle: nil)
                 if let viewController = storyboard.instantiateInitialViewController() {
-                    print("SceneDelegate: 成功實例化主視圖控制器")
-                    
                     UIView.transition(with: self.window!, duration: 0.5, options: .transitionCrossDissolve, animations: {
                         self.window?.rootViewController = viewController
-                    }, completion: { _ in
-                        print("SceneDelegate: 已切換到主視圖控制器")
-                    })
-                } else {
-                    print("SceneDelegate: 無法實例化主視圖控制器")
+                    }, completion: nil)
                 }
             }
             
             window?.makeKeyAndVisible()
-            print("SceneDelegate: 窗口已設置為可見")
     }
     
     // 添加螢幕方向控制方法

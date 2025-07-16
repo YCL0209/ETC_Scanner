@@ -156,8 +156,7 @@ class NetworkManager {
         return true
     }
     func downloadCSV(fileName: String, completion: @escaping (Result<Data, Error>) -> Void) {
-        // 增加重試次數以處理295行截斷問題
-        downloadCSVWithRetry(fileName: fileName, retryCount: 5, completion: completion)
+        downloadCSVWithRetry(fileName: fileName, retryCount: 3, completion: completion)
     }
     
     private func downloadCSVWithRetry(fileName: String, retryCount: Int, completion: @escaping (Result<Data, Error>) -> Void) {
@@ -167,62 +166,23 @@ class NetworkManager {
         }
         
         let downloadStartTime = Date()
-        print("🌐 ===== 開始下載診斷 =====")
-        print("📁 檔案名稱: \(fileName)")
-        print("🔗 下載 URL: \(url.absoluteString)")
-        print("🔄 剩餘重試次數: \(retryCount)")
-        print("⏰ 開始時間: \(downloadStartTime)")
         
         var request = URLRequest(url: url)
         request.setValue("application/octet-stream", forHTTPHeaderField: "Accept")
         request.setValue(apiKey, forHTTPHeaderField: "x-api-key") // 添加 API 金鑰
         request.timeoutInterval = 120.0 // 延長超時時間到120秒，避免大檔案下載截斷
         
-        // 記錄請求資訊
-        print("📋 請求設定:")
-        print("   Accept: application/octet-stream")
-        print("   x-api-key: \(apiKey)")
-        print("   Timeout: 120.0 秒")
-        print("   Request Method: GET")
         
-        // 創建更可靠的 URLSession 配置
-        let config = URLSessionConfiguration.default
-        config.waitsForConnectivity = true // 等待網路連線
-        config.timeoutIntervalForResource = 180.0 // 資源超時3分鐘
-        config.requestCachePolicy = .reloadIgnoringLocalCacheData // 忽略快取
-        
-        let session = URLSession(configuration: config)
-        let task = session.downloadTask(with: request) { [weak self] (tempURL, response, error) in
+        let task = URLSession.shared.downloadTask(with: request) { [weak self] (tempURL, response, error) in
             let downloadEndTime = Date()
             let downloadDuration = downloadEndTime.timeIntervalSince(downloadStartTime)
             
-            print("⏰ ===== 下載時間分析 =====")
-            print("⏰ 響應接收時間: \(downloadEndTime)")
-            print("📊 總下載時間: \(String(format: "%.2f", downloadDuration)) 秒")
-            print("🔍 是否超時: \(downloadDuration >= 120.0 ? "❌ 是" : "✅ 否")")
             
             if let error = error {
-                print("❌ 下載錯誤: \(error.localizedDescription)")
-                print("🔍 錯誤詳情:")
-                
-                // 將錯誤轉換為NSError以獲取詳細資訊
-                let nsError = error as NSError
-                print("   Domain: \(nsError.domain)")
-                print("   Code: \(nsError.code)")
-                print("   UserInfo: \(nsError.userInfo)")
-                
-                // 特別檢查是否是超時錯誤
-                if nsError.code == NSURLErrorTimedOut {
-                    print("⏰ 確認為超時錯誤！下載耗時: \(String(format: "%.2f", downloadDuration)) 秒")
-                } else if nsError.code == NSURLErrorNetworkConnectionLost {
-                    print("🌐 網路連線中斷！可能是在傳輸過程中斷線")
-                }
                 
                 // 如果有重試次數，則重試
                 if retryCount > 0 {
-                    print("🔄 準備重試下載...")
                     DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
-                        print("🔄 等待2秒後重試，讓網路連線恢復...")
                         self?.downloadCSVWithRetry(fileName: fileName, retryCount: retryCount - 1, completion: completion)
                     }
                     return
@@ -233,38 +193,16 @@ class NetworkManager {
             }
             
             guard let httpResponse = response as? HTTPURLResponse else {
-                print("❌ 無效的 HTTP 回應")
                 completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "無效的回應"])))
                 return
             }
             
-            print("📊 ===== HTTP 響應分析 =====")
-            print("🔢 HTTP 狀態碼: \(httpResponse.statusCode)")
-            print("🏷️ HTTP Headers:")
-            for (key, value) in httpResponse.allHeaderFields {
-                print("   \(key): \(value)")
-            }
-            
-            // 獲取預期的檔案大小
             let expectedSize = httpResponse.expectedContentLength
-            print("📏 伺服器回報的檔案大小: \(expectedSize) 字節")
-            
-            // 檢查Content-Type
-            if let contentType = httpResponse.value(forHTTPHeaderField: "Content-Type") {
-                print("📄 Content-Type: \(contentType)")
-            }
-            
-            // 檢查Content-Length
-            if let contentLength = httpResponse.value(forHTTPHeaderField: "Content-Length") {
-                print("📐 Content-Length Header: \(contentLength)")
-            }
             
             guard (200...299).contains(httpResponse.statusCode) else {
-                print("❌ HTTP 錯誤: \(httpResponse.statusCode)")
                 
                 // 對於downloadTask，如果發生HTTP錯誤，嘗試讀取臨時檔案中的錯誤訊息
                 if let tempURL = tempURL, let errorData = try? Data(contentsOf: tempURL), let errorString = String(data: errorData, encoding: .utf8) {
-                    print("📄 錯誤回應內容: \(errorString)")
                 }
                 
                 completion(.failure(NSError(domain: "", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "伺服器錯誤: \(httpResponse.statusCode)"])))
@@ -272,98 +210,47 @@ class NetworkManager {
             }
             
             guard let tempURL = tempURL else {
-                print("❌ 下載的臨時檔案位置無效")
                 completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "下載的臨時檔案位置無效"])))
                 return
             }
             
             // 從臨時檔案讀取資料
             guard let data = try? Data(contentsOf: tempURL) else {
-                print("❌ 無法讀取下載的檔案")
                 completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "無法讀取下載的檔案"])))
                 return
             }
             
             guard !data.isEmpty else {
-                print("❌ 下載的數據為空")
                 completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "下載的數據為空"])))
                 return
             }
             
-            print("💾 ===== 下載數據分析 =====")
-            print("📁 臨時檔案位置: \(tempURL.path)")
-            print("📊 實際下載數據大小: \(data.count) 字節")
-            print("📏 預期數據大小: \(expectedSize) 字節")
-            print("🔍 大小比較: \(data.count == expectedSize ? "✅ 一致" : "❌ 不一致")")
-            
-            // 檢查記憶體使用情況
-            var memoryInfo = mach_task_basic_info()
-            var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size)/4
-            let kerr: kern_return_t = withUnsafeMutablePointer(to: &memoryInfo) {
-                $0.withMemoryRebound(to: integer_t.self, capacity: 1) {
-                    task_info(mach_task_self_, task_flavor_t(MACH_TASK_BASIC_INFO), $0, &count)
-                }
-            }
-            if kerr == KERN_SUCCESS {
-                print("🧠 記憶體使用: \(memoryInfo.resident_size / 1024 / 1024) MB")
-            }
-            
-            // 檢查臨時檔案資訊
-            if let fileAttributes = try? FileManager.default.attributesOfItem(atPath: tempURL.path) {
-                if let fileSize = fileAttributes[.size] as? Int64 {
-                    print("📁 臨時檔案大小: \(fileSize) 字節")
-                }
-            }
             
             // 檢查檔案大小完整性
             if expectedSize > 0 && Int64(data.count) != expectedSize {
-                print("⚠️  檔案大小不符！預期: \(expectedSize) 字節，實際: \(data.count) 字節")
-                print("📊 差異: \(expectedSize - Int64(data.count)) 字節")
                 
                 // 檢查下載的內容是否被截斷
                 if let csvString = String(data: data, encoding: .utf8) {
                     let lines = csvString.components(separatedBy: .newlines)
-                    print("📄 ===== CSV 內容分析 =====")
-                    print("📋 總行數: \(lines.count)")
-                    print("🔤 字符數: \(csvString.count)")
-                    print("🔚 最後一行: '\(lines.last ?? "")'")
-                    print("📏 最後一行長度: \(lines.last?.count ?? 0)")
                     
                     // 檢查最後幾行是否完整
-                    print("📋 最後5行預覽:")
                     for (i, line) in lines.suffix(5).enumerated() {
                         let lineNumber = lines.count - 5 + i
-                        print("   行\(lineNumber): '\(line)' (長度: \(line.count))")
                     }
                     
                     // 檢查是否有不完整的行
                     let nonEmptyLines = lines.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-                    print("📊 有效行數: \(nonEmptyLines.count)")
                     
-                    // 強化檔案完整性檢查
+                    // 檔案完整性檢查
                     let shouldRetry = retryCount > 0 && (
                         // 檢查1: 最後一行不完整（沒有逗號分隔符）
                         (lines.last?.isEmpty == false && !lines.last!.contains(",")) ||
-                        // 檢查2: 總行數明顯不合理（少於310行可能是截斷）
-                        nonEmptyLines.count < 310 ||
-                        // 檢查3: 檔案不以完整的CSV行結尾
-                        (!csvString.hasSuffix("\n") && !csvString.hasSuffix("\r\n")) ||
-                        // 檢查4: 特別檢測295行的截斷問題
-                        nonEmptyLines.count == 295
+                        // 檢查2: 檔案不以完整的CSV行結尾
+                        (!csvString.hasSuffix("\n") && !csvString.hasSuffix("\r\n"))
                     )
                     
                     if shouldRetry {
-                        print("🔄 檔案完整性檢查失敗，準備重試...")
-                        print("   最後一行檢查: \(lines.last?.isEmpty == false && !lines.last!.contains(","))")
-                        print("   行數檢查: \(nonEmptyLines.count < 310) (實際行數: \(nonEmptyLines.count))")
-                        print("   結尾檢查: \(!csvString.hasSuffix("\n") && !csvString.hasSuffix("\r\n"))")
-                        print("   295行截斷檢查: \(nonEmptyLines.count == 295)")
-                        if nonEmptyLines.count == 295 {
-                            print("   ⚠️ 檢測到295行截斷問題！預期至少315行")
-                        }
-                        
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
-                            print("🔄 等待3秒後重試，讓網路連線恢復...")
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
                             self?.downloadCSVWithRetry(fileName: fileName, retryCount: retryCount - 1, completion: completion)
                         }
                         return
@@ -371,7 +258,6 @@ class NetworkManager {
                 }
                 
                 // 如果沒有重試次數了，發出警告但繼續
-                print("⚠️  檔案可能不完整，但繼續處理...")
             }
             
             // 最終數據完整性檢查
@@ -379,40 +265,16 @@ class NetworkManager {
                 let lines = csvString.components(separatedBy: .newlines)
                 let nonEmptyLines = lines.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
                 
-                print("✅ ===== 下載成功總結 =====")
-                print("📊 數據大小: \(data.count) 字節")
-                print("🔤 字符數: \(csvString.count)")
-                print("📋 總行數: \(lines.count)")
-                print("📊 有效行數: \(nonEmptyLines.count)")
                 
-                // 最終資料完整性警告
+                // 資料完整性警告
                 if nonEmptyLines.count < 315 {
-                    print("⚠️  警告：有效行數(\(nonEmptyLines.count))少於預期(315)，資料不完整")
-                    if nonEmptyLines.count == 295 {
-                        print("❌ 偵測到常見的295行截斷問題！缺少20行資料")
-                    }
                 }
                 
                 if expectedSize > 0 && Int64(data.count) != expectedSize {
-                    print("⚠️  警告：檔案大小不符，可能有資料截斷")
                 }
-                print("📈 預期有效行數: 315 (伺服器資料)")
-                print("🔍 資料完整性: \(nonEmptyLines.count >= 315 ? "✅ 完整" : "❌ 不完整，缺少 \(315 - nonEmptyLines.count) 行")")
-                print("⏰ 下載耗時: \(String(format: "%.2f", downloadDuration)) 秒")
-                print("📊 平均下載速度: \(String(format: "%.2f", Double(data.count) / downloadDuration)) 字節/秒")
                 
-                // 如果資料不完整且有重試次數，觸發重試
-                if nonEmptyLines.count < 315 && retryCount > 0 {
-                    print("🔄 資料行數不足，準備重試...")
-                    print("⏰ 本次下載耗時: \(String(format: "%.2f", downloadDuration)) 秒，可能因為網路問題導致資料不完整")
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
-                        self?.downloadCSVWithRetry(fileName: fileName, retryCount: retryCount - 1, completion: completion)
-                    }
-                    return
-                }
             }
             
-            print("✅ 下載完成 - 總耗時: \(String(format: "%.2f", downloadDuration)) 秒")
             completion(.success(data))
         }
         
@@ -426,7 +288,6 @@ class NetworkManager {
             return
         }
         
-        print("開始上傳到: \(url.absoluteString)")
         
         // 2. 設定請求
         let boundary = "Boundary-\(UUID().uuidString)"
@@ -443,29 +304,23 @@ class NetworkManager {
         
         do {
             // 4. 讀取檔案
-            print("開始讀取檔案: \(fileURL.path)")
             let fileData = try Data(contentsOf: fileURL)
-            print("檔案大小: \(fileData.count) 位元組")
             
             data.append(fileData)
             data.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
             
             // 5. 建立並執行上傳任務
-            print("開始上傳到: \(url.absoluteString)")
             let task = URLSession.shared.uploadTask(with: request, from: data) { (responseData, response, error) in
                 if let error = error {
-                    print("上傳錯誤: \(error.localizedDescription)")
                     completion(false, error)
                     return
                 }
                 
                 if let httpResponse = response as? HTTPURLResponse {
-                    print("伺服器回應狀態碼: \(httpResponse.statusCode)")
-                    
+                        
                     // 嘗試解析伺服器回應
                     if let responseData = responseData, let responseString = String(data: responseData, encoding: .utf8) {
-                        print("伺服器回應: \(responseString)")
-                    }
+                        }
                     
                     let success = (200...299).contains(httpResponse.statusCode)
                     if !success {
@@ -482,7 +337,6 @@ class NetworkManager {
             
             task.resume()
         } catch {
-            print("讀取檔案失敗: \(error.localizedDescription)")
             completion(false, error)
         }
     }
@@ -492,7 +346,6 @@ class NetworkManager {
             return
         }
         
-        print("正在獲取檔案列表，URL: \(url.absoluteString)")
         
         // 添加額外的請求頭，確保接收 JSON
         var request = URLRequest(url: url)
@@ -503,13 +356,11 @@ class NetworkManager {
         
         let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
             if let error = error {
-                print("網絡錯誤: \(error.localizedDescription)")
                 completion(.failure(error))
                 return
             }
             
             if let httpResponse = response as? HTTPURLResponse {
-                print("HTTP 狀態碼: \(httpResponse.statusCode)")
                 
                 // 如果不是成功的狀態碼，直接返回錯誤
                 if !(200...299).contains(httpResponse.statusCode) {
@@ -520,37 +371,30 @@ class NetworkManager {
             }
             
             guard let data = data else {
-                print("沒有接收到數據")
                 completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "未接收到數據"])))
                 return
             }
             
             // 如果數據為空，提前返回空數組
             if data.isEmpty {
-                print("接收到空數據")
                 completion(.success([]))
                 return
             }
             
-            // 打印原始回應，幫助診斷
+            // 原始回應
             if let responseString = String(data: data, encoding: .utf8) {
-                print("原始回應: \(responseString)")
             }
             
             // 先嘗試使用 JSONDecoder 解析
             do {
                 let response = try JSONDecoder().decode(ServerResponse.self, from: data)
-                print("解析成功，檔案數量: \(response.files.count)")
                 
                 if response.files.isEmpty {
-                    print("伺服器返回的檔案列表為空")
                 } else {
-                    print("檔案列表: \(response.files.map { $0.fileName }.joined(separator: ", "))")
                 }
                 
                 completion(.success(response.files))
             } catch {
-                print("JSONDecoder 解析錯誤，嘗試手動解析: \(error)")
                 
                 // 如果使用 JSONDecoder 失敗，嘗試手動解析
                 do {
@@ -569,14 +413,11 @@ class NetworkManager {
                             return FileInfo(fileName: fileName, size: size, uploadTime: uploadTime)
                         }
                         
-                        print("手動解析成功，檔案數量: \(fileInfos.count)")
                         completion(.success(fileInfos))
                     } else {
-                        print("手動解析失敗，無法識別回應格式")
                         completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "無法識別的回應格式"])))
                     }
                 } catch {
-                    print("手動解析也失敗: \(error)")
                     completion(.failure(error))
                 }
             }
@@ -587,7 +428,6 @@ class NetworkManager {
     // 添加到 NetworkManager 中
 private func getBaseURL() -> String {
     let url = serverURL.hasSuffix("/") ? String(serverURL.dropLast()) : serverURL
-    print("使用伺服器 URL: \(url)")
     return url
 }
 
@@ -681,7 +521,6 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     private var scannerTextField: UITextField!
     var scannedItems: [ScanItem] = [] {
         didSet {
-            print("目前資料數量：\(scannedItems.count)")
         }
     }
     
@@ -704,7 +543,6 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
         // 強制使用淺色模式（白天模式）
         overrideUserInterfaceStyle = .light
         
-        print("viewDidLoad 開始")
         // 檢查 IBOutlet 連接
         checkIBOutletConnections()
         
@@ -717,7 +555,6 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
         // 每次啟動都顯示說明
         showAppInstructions()
         
-        print("viewDidLoad 完成")
     }
     // 在 class ViewController 內，其他方法的同層級添加這兩個方法
    override func viewWillAppear(_ animated: Bool) {
@@ -764,19 +601,10 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     private func checkIBOutletConnections() {
         // 檢查 TableView
         if tableView != nil {
-            print("✅ TableView 已正確連接")
         } else {
-            print("❌ 錯誤：TableView 未連接")
         }
         
         // 檢查其他 IBOutlet
-        if statusLabel == nil { print("❌ statusLabel 未連接") }
-        if scanTextLabel == nil { print("❌  scanTextLabel 未連接") }
-        if scannerImageView == nil { print("❌ scannerImageView 未連接") }
-        if importButton == nil { print("❌ importButton 未連接") }
-        if exportButton == nil { print("❌ exportButton 未連接") }
-        if deleteButton == nil { print("❌ deleteButton 未連接") }
-        if topBackgroundImage == nil { print("❌ topBackgroundImage 未連接") }
     }
     
     
@@ -790,7 +618,6 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
         setupTableView()
         
         // 確認UI設置完成
-        print("✅ UI設置完成 - 所有元素已正確配置")
         
         /* 
          UI改進說明：
@@ -806,13 +633,11 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     private func setupScanningArea() {
         guard let imageView = scannerImageView,
               let textLabel = scanTextLabel else {
-            print("❌ 掃描區域元件未連接")
             return
         }
         
         // 檢查圖片是否能夠載入
         let image = UIImage(named: "scanner_background")
-        print("掃描器圖片: \(image != nil ? "載入成功" : "載入失敗")")
         
         imageView.image = image
         imageView.contentMode = .scaleAspectFill
@@ -849,7 +674,6 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     //頂部圖片
     private func setupTopBackground() {
         guard let topImage = topBackgroundImage else {
-            print("❌ 頂部背景圖未連接")
             return
         }
         topImage.contentMode = .scaleAspectFill
@@ -867,7 +691,6 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     //狀態
     private func setupStatusArea() {
         guard let status = statusLabel else {
-            print("❌ 狀態標籤未連接")
             return
         }
         status.text = "待機中"
@@ -889,7 +712,6 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
               let export = exportButton,
               let delete = deleteButton,
               let search = searchButton else {
-            print("❌ 按鈕未完全連接")
             return
         }
         
@@ -1070,7 +892,6 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     // MARK: - Actions
     private func setupTableView() {
     guard let table = tableView else {
-        print("❌ 表格視圖未連接")
         return
     }
     
@@ -1106,12 +927,10 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
         table.bottomAnchor.constraint(equalTo: view.safeAreaLayoutGuide.bottomAnchor)
     ])
     
-    print("TableView 設置完成")
 }
 
     // 將編輯視圖控制器的顯示邏輯移到獨立的方法中
     private func showEditViewController(for index: Int) {
-         print("有沒有執行scannerTextField釋放焦點")
          // 第一步：強制釋放掃描器的焦點
          if scannerTextField.isFirstResponder {
             scannerTextField.resignFirstResponder()
@@ -1280,11 +1099,9 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     }
     
     func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
-        print("收到輸入：\(string)")
         
         // 檢查是否為掃描結束
         if string == "\n" || string == "\r" || string.isEmpty {
-            print("偵測到掃描結束，開始處理掃描結果")
             let fullScan = textField.text?.uppercased() ?? ""
             handleScanCompletion(fullScan)
             return false
@@ -1296,7 +1113,6 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
 
     // 處理掃描結果的方法
     private func handleScanResult(epcCode: String) {
-        print("handleScanResult 被呼叫，epcCode: \(epcCode)")
         
         // 先檢查是否有重複的條碼（排除當前選中的項目）
         var duplicateIndex: Int? = nil
@@ -1314,7 +1130,6 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
         
         if let selectedIndex = selectedItemIndex {
             // 有選中的項目
-            print("更新選中項目 \(selectedIndex) 的 ETAG：\(epcCode)")
             
             // 如果發現重複（不是當前選中的項目）
             if let dupIndex = duplicateIndex {
@@ -1407,7 +1222,6 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
                 }
             } else {
                 // 創建新項目
-                print("創建新的掃描項目")
                 
                 let dateFormatter = DateFormatter()
                 dateFormatter.dateFormat = "yyyy/MM/dd HH:mm:ss"
@@ -1723,7 +1537,6 @@ private func importFromLocalFile() {
                     """
                 
                 let fileAction = UIAlertAction(title: actionTitle, style: .default) { [weak self] _ in
-                    print("選擇下載檔案: \(fileInfo.fileName)")
                     self?.showLoadingAlert(message: "正在下載檔案...")
                     
                     NetworkManager.shared.downloadCSV(fileName: fileInfo.fileName) { result in
@@ -1731,76 +1544,23 @@ private func importFromLocalFile() {
                             self?.dismissLoadingAlert {
                                 switch result {
                                 case .success(let data):
-                                    print("成功下載檔案，大小: \(data.count) 字節")
-                                    
-                                    // 🔍 檢查階段1：字符編碼轉換（Data→String）
-                                    print("🔍 檢查階段1：字符編碼轉換")
-                                    print("   原始Data大小: \(data.count) 字節")
                                     
                                     if let csvString = String(data: data, encoding: .utf8) {
-                                        print("   轉換後String長度: \(csvString.count) 字符")
-                                        print("   轉換後String字節大小: \(csvString.data(using: .utf8)?.count ?? 0) 字節")
-                                        print("   字符編碼轉換差異: \(data.count - (csvString.data(using: .utf8)?.count ?? 0)) 字節")
-                                        
                                         let lines = csvString.components(separatedBy: .newlines)
-                                        print("   轉換後總行數: \(lines.count)")
-                                        print("   最後一行: '\(lines.last ?? "")'")
-                                        
-                                        print("CSV 內容前 100 字符: \(String(csvString.prefix(100)))")
                                         
                                         let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(fileInfo.fileName)
-                                        print("保存下載檔案到: \(tempURL.path)")
                                         
                                         do {
-                                            // 🔍 檢查階段2：檔案寫入（String→File）
-                                            print("🔍 檢查階段2：檔案寫入")
-                                            print("   寫入前String長度: \(csvString.count) 字符")
-                                            
                                             try csvString.write(to: tempURL, atomically: true, encoding: .utf8)
-                                            
-                                            // 驗證寫入後的檔案大小
-                                            let fileAttributes = try FileManager.default.attributesOfItem(atPath: tempURL.path)
-                                            let fileSize = fileAttributes[FileAttributeKey.size] as? Int64 ?? 0
-                                            print("   寫入後檔案大小: \(fileSize) 字節")
-                                            
-                                            // 🔍 檢查階段3：檔案讀取驗證（File→String）
-                                            print("🔍 檢查階段3：檔案讀取驗證")
-                                            let readBackString = try String(contentsOf: tempURL, encoding: .utf8)
-                                            print("   讀取後String長度: \(readBackString.count) 字符")
-                                            print("   讀取後String字節大小: \(readBackString.data(using: .utf8)?.count ?? 0) 字節")
-                                            
-                                            let readBackLines = readBackString.components(separatedBy: .newlines)
-                                            print("   讀取後總行數: \(readBackLines.count)")
-                                            print("   讀取後最後一行: '\(readBackLines.last ?? "")'")
-                                            
-                                            // 🔍 檢查階段4：比對各階段的資料變化
-                                            print("🔍 檢查階段4：資料變化摘要")
-                                            print("   原始下載: \(data.count) 字節")
-                                            print("   編碼轉換: \(csvString.count) 字符 (\(csvString.data(using: .utf8)?.count ?? 0) 字節)")
-                                            print("   檔案寫入: \(fileSize) 字節")
-                                            print("   檔案讀取: \(readBackString.count) 字符 (\(readBackString.data(using: .utf8)?.count ?? 0) 字節)")
-                                            
-                                            if data.count != readBackString.data(using: .utf8)?.count {
-                                                print("❌ 資料遺失檢測！")
-                                                print("   遺失: \(data.count - (readBackString.data(using: .utf8)?.count ?? 0)) 字節")
-                                            } else {
-                                                print("✅ 資料完整性驗證通過")
-                                            }
-                                            
                                             self?.parseCSV(from: tempURL)
                                         } catch {
-                                            print("寫入檔案失敗: \(error)")
                                             self?.showAlert(title: "錯誤", message: "無法處理檔案：\(error.localizedDescription)")
                                         }
                                     } else {
-                                        print("❌ 無法將數據轉換為 CSV 字符串")
-                                        print("   原始Data大小: \(data.count) 字節")
-                                        print("   UTF-8編碼失敗")
                                         self?.showAlert(title: "錯誤", message: "無法解析 CSV 數據")
                                     }
                                     
                                 case .failure(let error):
-                                    print("下載失敗: \(error)")
                                     self?.showAlert(title: "錯誤", message: "無法從伺服器下載：\(error.localizedDescription)")
                                 }
                             }
@@ -1897,7 +1657,6 @@ private func generateCSVContent(for building: Building) -> String {
     }
     
     // 新增：打印過濾後的項目數量
-    print("棟別 \(building.rawValue) 過濾後項目數量: \(filteredItems.count)")
     
     // 生成資料行
     var rows = ""
@@ -1906,12 +1665,10 @@ private func generateCSVContent(for building: Building) -> String {
         rows += "\n"
         
         // 新增：顯示正在生成的行
-        print("生成第 \(index) 行: \(generateCSVRow(index: index, item: item))")
     }
     
     let fullContent = header + rows
     // 新增：檢查最終內容
-    print("最終CSV大小: \(fullContent.count) 字符，行數: \(fullContent.components(separatedBy: "\n").count)")
     
     return fullContent
 }
@@ -2102,7 +1859,6 @@ private func exportCSVForBuilding(_ building: Building) {
     let fileName = "ETC_\(building.filenameSuffix)棟資料.csv"
     
     // 記錄最終使用的檔案名稱
-    print("最終使用的檔案名稱: \(fileName)")
     
     // 生成 CSV 內容
     let csvContent = generateCSVContent(for: building)
@@ -2113,15 +1869,12 @@ private func exportCSVForBuilding(_ building: Building) {
 
 // 使用非常簡單明確的上傳方法，專注於檔案名稱問題
 private func uploadWithSimpleFileName(content: String, fileName: String, for building: Building) {
-    print("===== 開始上傳檔案 \(fileName) =====")
-    print("內容大小：\(content.count) 字符")
 
     showLoadingAlert(message: "正在上傳中...")
     
     // 使用原始中文檔名
     let originalFileName = "ETC_\(building.filenameSuffix)棟資料.csv"
     
-    print("使用原始檔名: \(originalFileName)")
     
     // 使用 NetworkManager 的方法獲取 URL
     guard let url = NetworkManager.shared.getUploadURL() else {
@@ -2166,11 +1919,9 @@ private func uploadWithSimpleFileName(content: String, fileName: String, for bui
             }
             
             if let httpResponse = response as? HTTPURLResponse {
-                print("伺服器回應狀態碼: \(httpResponse.statusCode)")
                 
                 // 嘗試解析伺服器回應
                 if let responseData = responseData, let responseString = String(data: responseData, encoding: .utf8) {
-                    print("伺服器回應: \(responseString)")
                 }
                 
                 let success = (200...299).contains(httpResponse.statusCode)
@@ -2227,7 +1978,6 @@ private func showUploadResultAlertImpl(success: Bool, message: String) {
     // 顯示提示框
     self.present(alert, animated: true) {
         // 確保提示框顯示後的回調
-        print("上傳結果提示框已顯示")
     }
 }
 
@@ -2257,7 +2007,6 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
     // 添加檔案內容
     do {
         let fileData = try Data(contentsOf: fileURL)
-        print("[直接上傳] 文件大小: \(fileData.count) 字節")
         
         if fileData.isEmpty {
             completion(false, NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "文件內容為空"]))
@@ -2270,17 +2019,14 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
         // 創建上傳任務
         let task = URLSession.shared.uploadTask(with: request, from: data) { data, response, error in
             if let error = error {
-                print("[直接上傳] 錯誤: \(error.localizedDescription)")
                 completion(false, error)
                 return
             }
             
             if let httpResponse = response as? HTTPURLResponse {
-                print("[直接上傳] 伺服器回應: \(httpResponse.statusCode)")
                 
                 // 嘗試解析伺服器回應
                 if let responseData = data, let responseString = String(data: responseData, encoding: .utf8) {
-                    print("[直接上傳] 回應內容: \(responseString)")
                 }
                 
                 completion(httpResponse.statusCode >= 200 && httpResponse.statusCode < 300, nil)
@@ -2292,7 +2038,6 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
         task.resume()
         
     } catch {
-        print("[直接上傳] 檔案讀取失敗: \(error.localizedDescription)")
         completion(false, error)
     }
 }
@@ -2385,65 +2130,17 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
         do {
             let csvContent = try String(contentsOf: url, encoding: .utf8)
             
-            // 🔍 階段1：檢查原始檔案讀取
-            print("📄 CSV檔案讀取完成")
-            print("   檔案大小: \(csvContent.count) 字符")
-            print("   檔案最後100字符: '\(String(csvContent.suffix(100)))'")
             let allLines = csvContent.components(separatedBy: .newlines)
-            print("   檔案原始總行數: \(allLines.count)")
-            print("   檔案最後10行:")
-            for (i, line) in allLines.suffix(10).enumerated() {
-                let lineNumber = allLines.count - 10 + i
-                print("     行\(lineNumber): '\(line)'")
-            }
             
             // 改進行分割邏輯，處理各種換行符和檔案末尾情況
             var rows = csvContent.components(separatedBy: .newlines)
             
-            // 如果檔案末尾沒有換行符，確保最後一行不被遺漏
-            if let lastRow = rows.last, !lastRow.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                print("檔案末尾沒有換行符，最後一行: '\(lastRow)'")
-            }
             
-            // 🔍 階段2：檢查行分割結果
-            print("📋 行分割結果")
-            print("   分割後總行數: \(rows.count)")
-            print("   最後5行原始內容:")
-            for (i, row) in rows.suffix(5).enumerated() {
-                let lineNumber = rows.count - 5 + i
-                print("     行\(lineNumber): '\(row)'")
-            }
             
-            // 🔍 階段3：檢查空行過濾影響
-            let originalRowCount = rows.count
+            // 過濾空行
             rows = rows.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
-            print("🔧 空行過濾結果")
-            print("   過濾前: \(originalRowCount) 行")
-            print("   過濾後: \(rows.count) 行")
-            print("   被過濾的行數: \(originalRowCount - rows.count)")
-            if originalRowCount != rows.count {
-                print("   被過濾的行:")
-                let allRows = csvContent.components(separatedBy: .newlines)
-                for (i, row) in allRows.enumerated() {
-                    if row.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty {
-                        print("     空行\(i + 1): '\(row)'")
-                    }
-                }
-            }
             
-            print("=== CSV解析開始 ===")
-            print("總行數: \(rows.count)")
             
-            // 🔍 階段4：檢查實際進入循環的行數
-            print("🔄 準備進入解析循環")
-            print("   跳過標題行後剩餘: \(rows.count - 1) 行")
-            print("   預期處理行號: 2 到 \(rows.count)")
-            print("   標題行內容: '\(rows.first ?? "")'")
-            print("   準備處理的最後5行:")
-            for (i, row) in rows.dropFirst().suffix(5).enumerated() {
-                let actualIndex = rows.count - 5 + i
-                print("     準備處理行\(actualIndex + 1): '\(row)'")
-            }
             
             // 用於記錄新添加的項目
             var newItems: [ScanItem] = []
@@ -2457,74 +2154,30 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
             for (index, row) in rows.dropFirst().enumerated() {
                 let actualRowNumber = index + 2  // +2 因為跳過標題行且從1開始計數
                 
-                // 特別關注294-296行的處理
-                if actualRowNumber >= 294 && actualRowNumber <= 296 {
-                    print("🔴 【重點關注】第\(actualRowNumber)行開始處理")
-                    print("   原始行內容: '\(row)'")
-                    print("   行長度: \(row.count) 字符")
-                }
                 
                 // 檢查當前線程是否應該取消操作 (如果 self 已被釋放)
                 guard self != nil else { 
-                    print("❌ Self已被釋放，中斷解析 - 當前處理第\(actualRowNumber)行")
                     break 
                 }
                 
-                if actualRowNumber >= 294 && actualRowNumber <= 296 {
-                    print("🔴 【重點關注】第\(actualRowNumber)行：self檢查通過")
-                }
                 
                 // 移除多餘的空白
                 let trimmedRow = row.trimmingCharacters(in: .whitespacesAndNewlines)
                 
-                if actualRowNumber >= 294 && actualRowNumber <= 296 {
-                    print("🔴 【重點關注】第\(actualRowNumber)行：trimmed後內容: '\(trimmedRow)'")
-                    print("   trimmed後長度: \(trimmedRow.count) 字符")
-                    print("   是否為空: \(trimmedRow.isEmpty)")
-                }
                 
                 guard !trimmedRow.isEmpty else { 
-                    print("⚠️  第\(actualRowNumber)行：空行，跳過")
-                    if actualRowNumber >= 294 && actualRowNumber <= 296 {
-                        print("🔴 【重點關注】第\(actualRowNumber)行：因為空行而跳過")
-                    }
                     continue 
                 }
                 
-                if actualRowNumber >= 294 && actualRowNumber <= 296 {
-                    print("🔴 【重點關注】第\(actualRowNumber)行：非空行檢查通過")
-                }
                 
                 let columns = trimmedRow.components(separatedBy: ",")
                     .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                 
-                if actualRowNumber >= 294 && actualRowNumber <= 296 {
-                    print("🔴 【重點關注】第\(actualRowNumber)行：分割後欄位數量 = \(columns.count)")
-                    for (i, col) in columns.enumerated() {
-                        print("   欄位\(i): '\(col)'")
-                    }
-                }
                 
-                print("🔍 第\(actualRowNumber)行解析：columns.count=\(columns.count)")
-                if columns.count >= 1 {
-                    print("   序號: '\(columns[0])'")
-                    if columns.count > 1 {
-                        print("   棟別: '\(columns[1])'")
-                    }
-                }
                 
                 // 確保至少有ETC條碼欄位
-                if actualRowNumber >= 294 && actualRowNumber <= 296 {
-                    print("🔴 【重點關注】第\(actualRowNumber)行：準備進行條件判斷")
-                    print("   columns.count >= 1: \(columns.count >= 1)")
-                    print("   !columns[0].isEmpty: \(!columns[0].isEmpty)")
-                    print("   整體條件: \(columns.count >= 1 && !columns[0].isEmpty)")
-                }
                 
                 if columns.count >= 1 && !columns[0].isEmpty {
-                    if actualRowNumber >= 294 && actualRowNumber <= 296 {
-                        print("🔴 【重點關注】第\(actualRowNumber)行：進入項目創建邏輯")
-                    }
                     
                     let dateFormatter = DateFormatter()
                     dateFormatter.dateFormat = "yyyy/MM/dd HH:mm:ss"
@@ -2542,11 +2195,6 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
                         isCDEBuilding = true
                     }
                     
-                    if actualRowNumber >= 294 && actualRowNumber <= 296 {
-                        print("🔴 【重點關注】第\(actualRowNumber)行：準備創建ScanItem")
-                        print("   hasETCCode: \(hasETCCode)")
-                        print("   building: '\(building)'")
-                    }
                     
                     let newItem = ScanItem(
                         code: columns[0],  // 序號
@@ -2565,27 +2213,14 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
                     )
                     
                     newItems.append(newItem)
-                    print("✅ 第\(actualRowNumber)行：成功添加項目 (序號:\(columns[0]), 棟別:\(building))")
                     
-                    if actualRowNumber >= 294 && actualRowNumber <= 296 {
-                        print("🔴 【重點關注】第\(actualRowNumber)行：項目已成功添加到newItems")
-                        print("   newItems.count: \(newItems.count)")
-                    }
-                } else {
-                    print("❌ 第\(actualRowNumber)行：跳過 (columns.count=\(columns.count), isEmpty=\(columns.isEmpty ? true : columns[0].isEmpty))")
-                    if actualRowNumber >= 294 && actualRowNumber <= 296 {
-                        print("🔴 【重點關注】第\(actualRowNumber)行：因為條件不符而跳過")
-                    }
                 }
             }
             
-            print("=== CSV解析結束 ===")
-            print("解析到的項目數量: \(newItems.count)")
             
             // 如果解析到的項目數量與預期不符，顯示詳細資訊
             let expectedCount = rows.count - 1 // 減去標題行
             if newItems.count != expectedCount {
-                print("⚠️  解析結果異常: 預期\(expectedCount)筆，實際\(newItems.count)筆")
             }
             
             // 回到主線程更新UI
@@ -2648,21 +2283,16 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
         
         // 嘗試方法 1：查找 "EPC Code:" 行
         let lines = scanResult.components(separatedBy: .newlines)
-        print("掃描結果分行數：\(lines.count)")
         for (index, line) in lines.enumerated() {
-            print("第\(index)行: \(line)")
             if line.contains("EPC Code:") || line.contains("EPC Code：") {
-                print("找到 EPC Code 行")
                 // 可能出現中文全形冒號
                 let components = line.components(separatedBy: ":")
                 if components.count > 1 {
                     // 提取 EPC Code 部分並清理
                     var epcCode = components[1].trimmingCharacters(in: .whitespacesAndNewlines)
-                    print("提取前的 EPC Code: \(epcCode)")
                     
                     // 過濾非英數字符並轉為大寫
                     epcCode = epcCode.filter { $0.isLetter || $0.isNumber }.uppercased()
-                    print("過濾後的 EPC Code: \(epcCode)")
                     
                     return epcCode
                 } else {
@@ -2719,16 +2349,10 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
     }
 
     private func handleScanCompletion(_ fullScan: String) {
-    print("處理掃描結果：\(fullScan)")
-    print("=== 開始提取 EPC Code ===")
     
     if let epcCode = extractEPCCode(from: fullScan)?.uppercased(), !epcCode.isEmpty {
-        print("提取的 EPC 碼：\(epcCode)")
         handleScanResult(epcCode: epcCode)
     } else {
-        print("無法提取有效的 EPC 碼")
-        print("原始掃描資料：")
-        print(fullScan)
         showAlert(title: "掃描錯誤", message: "無法識別有效的 EPC 碼")
         resetScanner(complete: true)
     }
@@ -2767,28 +2391,21 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
 
 // MARK: - UI Debugging
 private func logViewHierarchy() {
-    print("📱 設備型號: \(UIDevice.current.model)")
-    print("📱 螢幕尺寸: \(UIScreen.main.bounds.size)")
-    print("📱 安全區域: \(view.safeAreaInsets)")
     
     // 記錄主要UI元素的框架
     if let topImage = topBackgroundImage {
-        print("🔍 頂部背景圖: \(topImage.frame)")
     }
     
     if let scanner = scannerImageView {
-        print("🔍 掃描器圖片: \(scanner.frame)")
     }
     
     if let table = tableView {
-        print("🔍 表格視圖: \(table.frame)")
     }
     
     // 記錄按鈕的位置
     let buttons = [importButton, searchButton, exportButton, deleteButton]
     for (index, button) in buttons.enumerated() {
         if let btn = button {
-            print("🔍 按鈕\(index): \(btn.frame)")
         }
     }
 }
@@ -2808,17 +2425,13 @@ private func testFixedContentUpload() {
     
     do {
         try csvContent.write(to: fileURL, atomically: true, encoding: .utf8)
-        print("已創建測試文件：\(fileURL.path)")
-        print("文件大小：\(csvContent.count) 字符")
         
         // 讀取文件內容確認
         let readContent = try String(contentsOf: fileURL, encoding: .utf8)
-        print("讀取的文件內容：\n\(readContent)")
         
         // 使用與您測試軟體完全相同的方式上傳
         uploadTestFile(fileURL)
     } catch {
-        print("測試文件創建失敗：\(error.localizedDescription)")
     }
 }
 
@@ -2847,7 +2460,6 @@ private func uploadTestFile(_ fileURL: URL) {
     // 添加檔案內容
     do {
         let fileData = try Data(contentsOf: fileURL)
-        print("測試上傳：檔案大小 \(fileData.count) 字節")
         
         data.append(fileData)
         data.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
@@ -2875,20 +2487,12 @@ private func uploadTestFile(_ fileURL: URL) {
         task.resume()
         
     } catch {
-        print("測試上傳：檔案讀取失敗 \(error.localizedDescription)")
     }
 }
 
     private func debugScannedItems() {
-        print("=== 掃描項目棟別資訊檢查 ===")
-        print("總項目數: \(scannedItems.count)")
         
         for (index, item) in scannedItems.enumerated() {
-            print("項目 \(index):")
-            print("  Code: \(item.code)")
-            print("  棟別: \(item.building ?? "無")")
-            print("  戶別: \(item.household ?? "無")")
-            print("  車位: \(item.parkingNumber ?? "無")")
         }
         
         // 檢查每個棟別的過濾結果
@@ -2910,10 +2514,8 @@ private func uploadTestFile(_ fileURL: URL) {
                     return false
                 }.count
             }
-            print("棟別 '\(building.rawValue)' 匹配項目數: \(count)")
         }
         
-        print("===============================")
     }
 }
 
@@ -2934,7 +2536,6 @@ extension UIImage {
     // 使 getBaseURL 方法公開，讓 EmailManager 可以使用
   //  func getBaseURL() -> String {
     //    let url = serverURL.hasSuffix("/") ? String(serverURL.dropLast()) : serverURL
-      //  print("使用伺服器 URL: \(url)")
         //return url
     //}
 //}

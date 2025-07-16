@@ -249,9 +249,7 @@ class EmailManager: NSObject, MFMailComposeViewControllerDelegate {
                 return
             }
             
-            if let data = data, let responseString = String(data: data, encoding: .utf8) {
-                print("郵件發送回應：\(responseString)")
-                
+            if let data = data {
                 // 嘗試解析回應
                 if let responseData = try? JSONSerialization.jsonObject(with: data) as? [String: Any],
                    let success = responseData["success"] as? Bool {
