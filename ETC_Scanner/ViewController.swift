@@ -165,20 +165,54 @@ class NetworkManager {
             return
         }
         
-        print("下載檔案 URL: \(url.absoluteString) (剩餘重試次數: \(retryCount))")
+        let downloadStartTime = Date()
+        print("🌐 ===== 開始下載診斷 =====")
+        print("📁 檔案名稱: \(fileName)")
+        print("🔗 下載 URL: \(url.absoluteString)")
+        print("🔄 剩餘重試次數: \(retryCount)")
+        print("⏰ 開始時間: \(downloadStartTime)")
         
         var request = URLRequest(url: url)
         request.setValue("application/octet-stream", forHTTPHeaderField: "Accept")
         request.setValue(apiKey, forHTTPHeaderField: "x-api-key") // 添加 API 金鑰
-        request.timeoutInterval = 30.0 // 增加超時時間
+        request.timeoutInterval = 90.0 // 延長超時時間到90秒
         
-        let task = URLSession.shared.dataTask(with: request) { [weak self] (data, response, error) in
+        // 記錄請求資訊
+        print("📋 請求設定:")
+        print("   Accept: application/octet-stream")
+        print("   x-api-key: \(apiKey)")
+        print("   Timeout: 90.0 秒")
+        print("   Request Method: GET")
+        
+        let task = URLSession.shared.downloadTask(with: request) { [weak self] (tempURL, response, error) in
+            let downloadEndTime = Date()
+            let downloadDuration = downloadEndTime.timeIntervalSince(downloadStartTime)
+            
+            print("⏰ ===== 下載時間分析 =====")
+            print("⏰ 響應接收時間: \(downloadEndTime)")
+            print("📊 總下載時間: \(String(format: "%.2f", downloadDuration)) 秒")
+            print("🔍 是否超時: \(downloadDuration >= 90.0 ? "❌ 是" : "✅ 否")")
+            
             if let error = error {
-                print("下載錯誤: \(error.localizedDescription)")
+                print("❌ 下載錯誤: \(error.localizedDescription)")
+                print("🔍 錯誤詳情:")
+                
+                // 將錯誤轉換為NSError以獲取詳細資訊
+                let nsError = error as NSError
+                print("   Domain: \(nsError.domain)")
+                print("   Code: \(nsError.code)")
+                print("   UserInfo: \(nsError.userInfo)")
+                
+                // 特別檢查是否是超時錯誤
+                if nsError.code == NSURLErrorTimedOut {
+                    print("⏰ 確認為超時錯誤！下載耗時: \(String(format: "%.2f", downloadDuration)) 秒")
+                } else if nsError.code == NSURLErrorNetworkConnectionLost {
+                    print("🌐 網路連線中斷！可能是在傳輸過程中斷線")
+                }
                 
                 // 如果有重試次數，則重試
                 if retryCount > 0 {
-                    print("準備重試下載...")
+                    print("🔄 準備重試下載...")
                     DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                         self?.downloadCSVWithRetry(fileName: fileName, retryCount: retryCount - 1, completion: completion)
                     }
@@ -190,50 +224,116 @@ class NetworkManager {
             }
             
             guard let httpResponse = response as? HTTPURLResponse else {
-                print("無效的 HTTP 回應")
+                print("❌ 無效的 HTTP 回應")
                 completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "無效的回應"])))
                 return
             }
             
-            print("下載 HTTP 狀態碼: \(httpResponse.statusCode)")
+            print("📊 ===== HTTP 響應分析 =====")
+            print("🔢 HTTP 狀態碼: \(httpResponse.statusCode)")
+            print("🏷️ HTTP Headers:")
+            for (key, value) in httpResponse.allHeaderFields {
+                print("   \(key): \(value)")
+            }
             
             // 獲取預期的檔案大小
             let expectedSize = httpResponse.expectedContentLength
-            print("伺服器回報的檔案大小: \(expectedSize) 字節")
+            print("📏 伺服器回報的檔案大小: \(expectedSize) 字節")
+            
+            // 檢查Content-Type
+            if let contentType = httpResponse.value(forHTTPHeaderField: "Content-Type") {
+                print("📄 Content-Type: \(contentType)")
+            }
+            
+            // 檢查Content-Length
+            if let contentLength = httpResponse.value(forHTTPHeaderField: "Content-Length") {
+                print("📐 Content-Length Header: \(contentLength)")
+            }
             
             guard (200...299).contains(httpResponse.statusCode) else {
-                print("HTTP 錯誤: \(httpResponse.statusCode)")
+                print("❌ HTTP 錯誤: \(httpResponse.statusCode)")
                 
-                // 嘗試讀取錯誤訊息
-                if let errorData = data, let errorString = String(data: errorData, encoding: .utf8) {
-                    print("錯誤回應: \(errorString)")
+                // 對於downloadTask，如果發生HTTP錯誤，嘗試讀取臨時檔案中的錯誤訊息
+                if let tempURL = tempURL, let errorData = try? Data(contentsOf: tempURL), let errorString = String(data: errorData, encoding: .utf8) {
+                    print("📄 錯誤回應內容: \(errorString)")
                 }
                 
                 completion(.failure(NSError(domain: "", code: httpResponse.statusCode, userInfo: [NSLocalizedDescriptionKey: "伺服器錯誤: \(httpResponse.statusCode)"])))
                 return
             }
             
-            guard let data = data, !data.isEmpty else {
-                print("下載的數據為空")
+            guard let tempURL = tempURL else {
+                print("❌ 下載的臨時檔案位置無效")
+                completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "下載的臨時檔案位置無效"])))
+                return
+            }
+            
+            // 從臨時檔案讀取資料
+            guard let data = try? Data(contentsOf: tempURL) else {
+                print("❌ 無法讀取下載的檔案")
+                completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "無法讀取下載的檔案"])))
+                return
+            }
+            
+            guard !data.isEmpty else {
+                print("❌ 下載的數據為空")
                 completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "下載的數據為空"])))
                 return
             }
             
-            print("實際下載數據大小: \(data.count) 字節")
+            print("💾 ===== 下載數據分析 =====")
+            print("📁 臨時檔案位置: \(tempURL.path)")
+            print("📊 實際下載數據大小: \(data.count) 字節")
+            print("📏 預期數據大小: \(expectedSize) 字節")
+            print("🔍 大小比較: \(data.count == expectedSize ? "✅ 一致" : "❌ 不一致")")
+            
+            // 檢查記憶體使用情況
+            var memoryInfo = mach_task_basic_info()
+            var count = mach_msg_type_number_t(MemoryLayout<mach_task_basic_info>.size)/4
+            let kerr: kern_return_t = withUnsafeMutablePointer(to: &memoryInfo) {
+                $0.withMemoryRebound(to: integer_t.self, capacity: 1) {
+                    task_info(mach_task_self_, task_flavor_t(MACH_TASK_BASIC_INFO), $0, &count)
+                }
+            }
+            if kerr == KERN_SUCCESS {
+                print("🧠 記憶體使用: \(memoryInfo.resident_size / 1024 / 1024) MB")
+            }
+            
+            // 檢查臨時檔案資訊
+            if let fileAttributes = try? FileManager.default.attributesOfItem(atPath: tempURL.path) {
+                if let fileSize = fileAttributes[.size] as? Int64 {
+                    print("📁 臨時檔案大小: \(fileSize) 字節")
+                }
+            }
             
             // 檢查檔案大小完整性
             if expectedSize > 0 && Int64(data.count) != expectedSize {
                 print("⚠️  檔案大小不符！預期: \(expectedSize) 字節，實際: \(data.count) 字節")
+                print("📊 差異: \(expectedSize - Int64(data.count)) 字節")
                 
                 // 檢查下載的內容是否被截斷
                 if let csvString = String(data: data, encoding: .utf8) {
                     let lines = csvString.components(separatedBy: .newlines)
-                    print("檔案行數: \(lines.count)")
-                    print("最後一行: '\(lines.last ?? "")'")
+                    print("📄 ===== CSV 內容分析 =====")
+                    print("📋 總行數: \(lines.count)")
+                    print("🔤 字符數: \(csvString.count)")
+                    print("🔚 最後一行: '\(lines.last ?? "")'")
+                    print("📏 最後一行長度: \(lines.last?.count ?? 0)")
+                    
+                    // 檢查最後幾行是否完整
+                    print("📋 最後5行預覽:")
+                    for (i, line) in lines.suffix(5).enumerated() {
+                        let lineNumber = lines.count - 5 + i
+                        print("   行\(lineNumber): '\(line)' (長度: \(line.count))")
+                    }
+                    
+                    // 檢查是否有不完整的行
+                    let nonEmptyLines = lines.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+                    print("📊 有效行數: \(nonEmptyLines.count)")
                     
                     // 如果最後一行不完整，且有重試次數，則重試
                     if retryCount > 0 && (lines.last?.isEmpty == false && !lines.last!.contains(",")) {
-                        print("檔案似乎被截斷，準備重試...")
+                        print("🔄 檔案似乎被截斷，準備重試...")
                         DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
                             self?.downloadCSVWithRetry(fileName: fileName, retryCount: retryCount - 1, completion: completion)
                         }
@@ -245,7 +345,33 @@ class NetworkManager {
                 print("⚠️  檔案可能不完整，但繼續處理...")
             }
             
-            print("成功下載數據，大小: \(data.count) 字節")
+            // 最終數據完整性檢查
+            if let csvString = String(data: data, encoding: .utf8) {
+                let lines = csvString.components(separatedBy: .newlines)
+                let nonEmptyLines = lines.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+                
+                print("✅ ===== 下載成功總結 =====")
+                print("📊 數據大小: \(data.count) 字節")
+                print("🔤 字符數: \(csvString.count)")
+                print("📋 總行數: \(lines.count)")
+                print("📊 有效行數: \(nonEmptyLines.count)")
+                print("📈 預期有效行數: 315 (伺服器資料)")
+                print("🔍 資料完整性: \(nonEmptyLines.count >= 315 ? "✅ 完整" : "❌ 不完整，缺少 \(315 - nonEmptyLines.count) 行")")
+                print("⏰ 下載耗時: \(String(format: "%.2f", downloadDuration)) 秒")
+                print("📊 平均下載速度: \(String(format: "%.2f", Double(data.count) / downloadDuration)) 字節/秒")
+                
+                // 如果資料不完整且有重試次數，觸發重試
+                if nonEmptyLines.count < 315 && retryCount > 0 {
+                    print("🔄 資料行數不足，準備重試...")
+                    print("⏰ 本次下載耗時: \(String(format: "%.2f", downloadDuration)) 秒，可能因為網路問題導致資料不完整")
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                        self?.downloadCSVWithRetry(fileName: fileName, retryCount: retryCount - 1, completion: completion)
+                    }
+                    return
+                }
+            }
+            
+            print("✅ 下載完成 - 總耗時: \(String(format: "%.2f", downloadDuration)) 秒")
             completion(.success(data))
         }
         
