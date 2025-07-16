@@ -156,20 +156,35 @@ class NetworkManager {
         return true
     }
     func downloadCSV(fileName: String, completion: @escaping (Result<Data, Error>) -> Void) {
+        downloadCSVWithRetry(fileName: fileName, retryCount: 3, completion: completion)
+    }
+    
+    private func downloadCSVWithRetry(fileName: String, retryCount: Int, completion: @escaping (Result<Data, Error>) -> Void) {
         guard let url = getDownloadURL(fileName: fileName) else {
             completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "無效的URL"])))
             return
         }
         
-        print("下載檔案 URL: \(url.absoluteString)")
+        print("下載檔案 URL: \(url.absoluteString) (剩餘重試次數: \(retryCount))")
         
         var request = URLRequest(url: url)
         request.setValue("application/octet-stream", forHTTPHeaderField: "Accept")
         request.setValue(apiKey, forHTTPHeaderField: "x-api-key") // 添加 API 金鑰
+        request.timeoutInterval = 30.0 // 增加超時時間
         
-        let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
+        let task = URLSession.shared.dataTask(with: request) { [weak self] (data, response, error) in
             if let error = error {
                 print("下載錯誤: \(error.localizedDescription)")
+                
+                // 如果有重試次數，則重試
+                if retryCount > 0 {
+                    print("準備重試下載...")
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                        self?.downloadCSVWithRetry(fileName: fileName, retryCount: retryCount - 1, completion: completion)
+                    }
+                    return
+                }
+                
                 completion(.failure(error))
                 return
             }
@@ -181,6 +196,10 @@ class NetworkManager {
             }
             
             print("下載 HTTP 狀態碼: \(httpResponse.statusCode)")
+            
+            // 獲取預期的檔案大小
+            let expectedSize = httpResponse.expectedContentLength
+            print("伺服器回報的檔案大小: \(expectedSize) 字節")
             
             guard (200...299).contains(httpResponse.statusCode) else {
                 print("HTTP 錯誤: \(httpResponse.statusCode)")
@@ -198,6 +217,32 @@ class NetworkManager {
                 print("下載的數據為空")
                 completion(.failure(NSError(domain: "", code: -1, userInfo: [NSLocalizedDescriptionKey: "下載的數據為空"])))
                 return
+            }
+            
+            print("實際下載數據大小: \(data.count) 字節")
+            
+            // 檢查檔案大小完整性
+            if expectedSize > 0 && Int64(data.count) != expectedSize {
+                print("⚠️  檔案大小不符！預期: \(expectedSize) 字節，實際: \(data.count) 字節")
+                
+                // 檢查下載的內容是否被截斷
+                if let csvString = String(data: data, encoding: .utf8) {
+                    let lines = csvString.components(separatedBy: .newlines)
+                    print("檔案行數: \(lines.count)")
+                    print("最後一行: '\(lines.last ?? "")'")
+                    
+                    // 如果最後一行不完整，且有重試次數，則重試
+                    if retryCount > 0 && (lines.last?.isEmpty == false && !lines.last!.contains(",")) {
+                        print("檔案似乎被截斷，準備重試...")
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                            self?.downloadCSVWithRetry(fileName: fileName, retryCount: retryCount - 1, completion: completion)
+                        }
+                        return
+                    }
+                }
+                
+                // 如果沒有重試次數了，發出警告但繼續
+                print("⚠️  檔案可能不完整，但繼續處理...")
             }
             
             print("成功下載數據，大小: \(data.count) 字節")
