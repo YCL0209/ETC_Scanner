@@ -2152,21 +2152,53 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
             for (index, row) in rows.dropFirst().enumerated() {
                 let actualRowNumber = index + 2  // +2 因為跳過標題行且從1開始計數
                 
+                // 特別關注294-296行的處理
+                if actualRowNumber >= 294 && actualRowNumber <= 296 {
+                    print("🔴 【重點關注】第\(actualRowNumber)行開始處理")
+                    print("   原始行內容: '\(row)'")
+                    print("   行長度: \(row.count) 字符")
+                }
+                
                 // 檢查當前線程是否應該取消操作 (如果 self 已被釋放)
                 guard self != nil else { 
-                    print("❌ Self已被釋放，中斷解析")
+                    print("❌ Self已被釋放，中斷解析 - 當前處理第\(actualRowNumber)行")
                     break 
+                }
+                
+                if actualRowNumber >= 294 && actualRowNumber <= 296 {
+                    print("🔴 【重點關注】第\(actualRowNumber)行：self檢查通過")
                 }
                 
                 // 移除多餘的空白
                 let trimmedRow = row.trimmingCharacters(in: .whitespacesAndNewlines)
+                
+                if actualRowNumber >= 294 && actualRowNumber <= 296 {
+                    print("🔴 【重點關注】第\(actualRowNumber)行：trimmed後內容: '\(trimmedRow)'")
+                    print("   trimmed後長度: \(trimmedRow.count) 字符")
+                    print("   是否為空: \(trimmedRow.isEmpty)")
+                }
+                
                 guard !trimmedRow.isEmpty else { 
                     print("⚠️  第\(actualRowNumber)行：空行，跳過")
+                    if actualRowNumber >= 294 && actualRowNumber <= 296 {
+                        print("🔴 【重點關注】第\(actualRowNumber)行：因為空行而跳過")
+                    }
                     continue 
+                }
+                
+                if actualRowNumber >= 294 && actualRowNumber <= 296 {
+                    print("🔴 【重點關注】第\(actualRowNumber)行：非空行檢查通過")
                 }
                 
                 let columns = trimmedRow.components(separatedBy: ",")
                     .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                
+                if actualRowNumber >= 294 && actualRowNumber <= 296 {
+                    print("🔴 【重點關注】第\(actualRowNumber)行：分割後欄位數量 = \(columns.count)")
+                    for (i, col) in columns.enumerated() {
+                        print("   欄位\(i): '\(col)'")
+                    }
+                }
                 
                 print("🔍 第\(actualRowNumber)行解析：columns.count=\(columns.count)")
                 if columns.count >= 1 {
@@ -2177,7 +2209,18 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
                 }
                 
                 // 確保至少有ETC條碼欄位
+                if actualRowNumber >= 294 && actualRowNumber <= 296 {
+                    print("🔴 【重點關注】第\(actualRowNumber)行：準備進行條件判斷")
+                    print("   columns.count >= 1: \(columns.count >= 1)")
+                    print("   !columns[0].isEmpty: \(!columns[0].isEmpty)")
+                    print("   整體條件: \(columns.count >= 1 && !columns[0].isEmpty)")
+                }
+                
                 if columns.count >= 1 && !columns[0].isEmpty {
+                    if actualRowNumber >= 294 && actualRowNumber <= 296 {
+                        print("🔴 【重點關注】第\(actualRowNumber)行：進入項目創建邏輯")
+                    }
+                    
                     let dateFormatter = DateFormatter()
                     dateFormatter.dateFormat = "yyyy/MM/dd HH:mm:ss"
                     let timeString = dateFormatter.string(from: Date())
@@ -2192,6 +2235,12 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
                     }
                     if building.contains("C") || building.contains("D") || building.contains("E") {
                         isCDEBuilding = true
+                    }
+                    
+                    if actualRowNumber >= 294 && actualRowNumber <= 296 {
+                        print("🔴 【重點關注】第\(actualRowNumber)行：準備創建ScanItem")
+                        print("   hasETCCode: \(hasETCCode)")
+                        print("   building: '\(building)'")
                     }
                     
                     let newItem = ScanItem(
@@ -2212,8 +2261,16 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
                     
                     newItems.append(newItem)
                     print("✅ 第\(actualRowNumber)行：成功添加項目 (序號:\(columns[0]), 棟別:\(building))")
+                    
+                    if actualRowNumber >= 294 && actualRowNumber <= 296 {
+                        print("🔴 【重點關注】第\(actualRowNumber)行：項目已成功添加到newItems")
+                        print("   newItems.count: \(newItems.count)")
+                    }
                 } else {
                     print("❌ 第\(actualRowNumber)行：跳過 (columns.count=\(columns.count), isEmpty=\(columns.isEmpty ? true : columns[0].isEmpty))")
+                    if actualRowNumber >= 294 && actualRowNumber <= 296 {
+                        print("🔴 【重點關注】第\(actualRowNumber)行：因為條件不符而跳過")
+                    }
                 }
             }
             
