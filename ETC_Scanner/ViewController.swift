@@ -1566,21 +1566,69 @@ private func importFromLocalFile() {
                                 case .success(let data):
                                     print("成功下載檔案，大小: \(data.count) 字節")
                                     
+                                    // 🔍 檢查階段1：字符編碼轉換（Data→String）
+                                    print("🔍 檢查階段1：字符編碼轉換")
+                                    print("   原始Data大小: \(data.count) 字節")
+                                    
                                     if let csvString = String(data: data, encoding: .utf8) {
+                                        print("   轉換後String長度: \(csvString.count) 字符")
+                                        print("   轉換後String字節大小: \(csvString.data(using: .utf8)?.count ?? 0) 字節")
+                                        print("   字符編碼轉換差異: \(data.count - (csvString.data(using: .utf8)?.count ?? 0)) 字節")
+                                        
+                                        let lines = csvString.components(separatedBy: .newlines)
+                                        print("   轉換後總行數: \(lines.count)")
+                                        print("   最後一行: '\(lines.last ?? "")'")
+                                        
                                         print("CSV 內容前 100 字符: \(String(csvString.prefix(100)))")
                                         
                                         let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(fileInfo.fileName)
                                         print("保存下載檔案到: \(tempURL.path)")
                                         
                                         do {
+                                            // 🔍 檢查階段2：檔案寫入（String→File）
+                                            print("🔍 檢查階段2：檔案寫入")
+                                            print("   寫入前String長度: \(csvString.count) 字符")
+                                            
                                             try csvString.write(to: tempURL, atomically: true, encoding: .utf8)
+                                            
+                                            // 驗證寫入後的檔案大小
+                                            let fileAttributes = try FileManager.default.attributesOfItem(atPath: tempURL.path)
+                                            let fileSize = fileAttributes[FileAttributeKey.size] as? Int64 ?? 0
+                                            print("   寫入後檔案大小: \(fileSize) 字節")
+                                            
+                                            // 🔍 檢查階段3：檔案讀取驗證（File→String）
+                                            print("🔍 檢查階段3：檔案讀取驗證")
+                                            let readBackString = try String(contentsOf: tempURL, encoding: .utf8)
+                                            print("   讀取後String長度: \(readBackString.count) 字符")
+                                            print("   讀取後String字節大小: \(readBackString.data(using: .utf8)?.count ?? 0) 字節")
+                                            
+                                            let readBackLines = readBackString.components(separatedBy: .newlines)
+                                            print("   讀取後總行數: \(readBackLines.count)")
+                                            print("   讀取後最後一行: '\(readBackLines.last ?? "")'")
+                                            
+                                            // 🔍 檢查階段4：比對各階段的資料變化
+                                            print("🔍 檢查階段4：資料變化摘要")
+                                            print("   原始下載: \(data.count) 字節")
+                                            print("   編碼轉換: \(csvString.count) 字符 (\(csvString.data(using: .utf8)?.count ?? 0) 字節)")
+                                            print("   檔案寫入: \(fileSize) 字節")
+                                            print("   檔案讀取: \(readBackString.count) 字符 (\(readBackString.data(using: .utf8)?.count ?? 0) 字節)")
+                                            
+                                            if data.count != readBackString.data(using: .utf8)?.count {
+                                                print("❌ 資料遺失檢測！")
+                                                print("   遺失: \(data.count - (readBackString.data(using: .utf8)?.count ?? 0)) 字節")
+                                            } else {
+                                                print("✅ 資料完整性驗證通過")
+                                            }
+                                            
                                             self?.parseCSV(from: tempURL)
                                         } catch {
                                             print("寫入檔案失敗: \(error)")
                                             self?.showAlert(title: "錯誤", message: "無法處理檔案：\(error.localizedDescription)")
                                         }
                                     } else {
-                                        print("無法將數據轉換為 CSV 字符串")
+                                        print("❌ 無法將數據轉換為 CSV 字符串")
+                                        print("   原始Data大小: \(data.count) 字節")
+                                        print("   UTF-8編碼失敗")
                                         self?.showAlert(title: "錯誤", message: "無法解析 CSV 數據")
                                     }
                                     
