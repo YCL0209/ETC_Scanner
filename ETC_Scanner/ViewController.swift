@@ -156,7 +156,8 @@ class NetworkManager {
         return true
     }
     func downloadCSV(fileName: String, completion: @escaping (Result<Data, Error>) -> Void) {
-        downloadCSVWithRetry(fileName: fileName, retryCount: 3, completion: completion)
+        // 增加重試次數以處理295行截斷問題
+        downloadCSVWithRetry(fileName: fileName, retryCount: 5, completion: completion)
     }
     
     private func downloadCSVWithRetry(fileName: String, retryCount: Int, completion: @escaping (Result<Data, Error>) -> Void) {
@@ -175,23 +176,30 @@ class NetworkManager {
         var request = URLRequest(url: url)
         request.setValue("application/octet-stream", forHTTPHeaderField: "Accept")
         request.setValue(apiKey, forHTTPHeaderField: "x-api-key") // 添加 API 金鑰
-        request.timeoutInterval = 90.0 // 延長超時時間到90秒
+        request.timeoutInterval = 120.0 // 延長超時時間到120秒，避免大檔案下載截斷
         
         // 記錄請求資訊
         print("📋 請求設定:")
         print("   Accept: application/octet-stream")
         print("   x-api-key: \(apiKey)")
-        print("   Timeout: 90.0 秒")
+        print("   Timeout: 120.0 秒")
         print("   Request Method: GET")
         
-        let task = URLSession.shared.downloadTask(with: request) { [weak self] (tempURL, response, error) in
+        // 創建更可靠的 URLSession 配置
+        let config = URLSessionConfiguration.default
+        config.waitsForConnectivity = true // 等待網路連線
+        config.timeoutIntervalForResource = 180.0 // 資源超時3分鐘
+        config.requestCachePolicy = .reloadIgnoringLocalCacheData // 忽略快取
+        
+        let session = URLSession(configuration: config)
+        let task = session.downloadTask(with: request) { [weak self] (tempURL, response, error) in
             let downloadEndTime = Date()
             let downloadDuration = downloadEndTime.timeIntervalSince(downloadStartTime)
             
             print("⏰ ===== 下載時間分析 =====")
             print("⏰ 響應接收時間: \(downloadEndTime)")
             print("📊 總下載時間: \(String(format: "%.2f", downloadDuration)) 秒")
-            print("🔍 是否超時: \(downloadDuration >= 90.0 ? "❌ 是" : "✅ 否")")
+            print("🔍 是否超時: \(downloadDuration >= 120.0 ? "❌ 是" : "✅ 否")")
             
             if let error = error {
                 print("❌ 下載錯誤: \(error.localizedDescription)")
@@ -213,7 +221,8 @@ class NetworkManager {
                 // 如果有重試次數，則重試
                 if retryCount > 0 {
                     print("🔄 準備重試下載...")
-                    DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 2.0) {
+                        print("🔄 等待2秒後重試，讓網路連線恢復...")
                         self?.downloadCSVWithRetry(fileName: fileName, retryCount: retryCount - 1, completion: completion)
                     }
                     return
@@ -331,10 +340,30 @@ class NetworkManager {
                     let nonEmptyLines = lines.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
                     print("📊 有效行數: \(nonEmptyLines.count)")
                     
-                    // 如果最後一行不完整，且有重試次數，則重試
-                    if retryCount > 0 && (lines.last?.isEmpty == false && !lines.last!.contains(",")) {
-                        print("🔄 檔案似乎被截斷，準備重試...")
-                        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) {
+                    // 強化檔案完整性檢查
+                    let shouldRetry = retryCount > 0 && (
+                        // 檢查1: 最後一行不完整（沒有逗號分隔符）
+                        (lines.last?.isEmpty == false && !lines.last!.contains(",")) ||
+                        // 檢查2: 總行數明顯不合理（少於310行可能是截斷）
+                        nonEmptyLines.count < 310 ||
+                        // 檢查3: 檔案不以完整的CSV行結尾
+                        (!csvString.hasSuffix("\n") && !csvString.hasSuffix("\r\n")) ||
+                        // 檢查4: 特別檢測295行的截斷問題
+                        nonEmptyLines.count == 295
+                    )
+                    
+                    if shouldRetry {
+                        print("🔄 檔案完整性檢查失敗，準備重試...")
+                        print("   最後一行檢查: \(lines.last?.isEmpty == false && !lines.last!.contains(","))")
+                        print("   行數檢查: \(nonEmptyLines.count < 310) (實際行數: \(nonEmptyLines.count))")
+                        print("   結尾檢查: \(!csvString.hasSuffix("\n") && !csvString.hasSuffix("\r\n"))")
+                        print("   295行截斷檢查: \(nonEmptyLines.count == 295)")
+                        if nonEmptyLines.count == 295 {
+                            print("   ⚠️ 檢測到295行截斷問題！預期至少315行")
+                        }
+                        
+                        DispatchQueue.main.asyncAfter(deadline: .now() + 3.0) {
+                            print("🔄 等待3秒後重試，讓網路連線恢復...")
                             self?.downloadCSVWithRetry(fileName: fileName, retryCount: retryCount - 1, completion: completion)
                         }
                         return
@@ -355,6 +384,18 @@ class NetworkManager {
                 print("🔤 字符數: \(csvString.count)")
                 print("📋 總行數: \(lines.count)")
                 print("📊 有效行數: \(nonEmptyLines.count)")
+                
+                // 最終資料完整性警告
+                if nonEmptyLines.count < 315 {
+                    print("⚠️  警告：有效行數(\(nonEmptyLines.count))少於預期(315)，資料不完整")
+                    if nonEmptyLines.count == 295 {
+                        print("❌ 偵測到常見的295行截斷問題！缺少20行資料")
+                    }
+                }
+                
+                if expectedSize > 0 && Int64(data.count) != expectedSize {
+                    print("⚠️  警告：檔案大小不符，可能有資料截斷")
+                }
                 print("📈 預期有效行數: 315 (伺服器資料)")
                 print("🔍 資料完整性: \(nonEmptyLines.count >= 315 ? "✅ 完整" : "❌ 不完整，缺少 \(315 - nonEmptyLines.count) 行")")
                 print("⏰ 下載耗時: \(String(format: "%.2f", downloadDuration)) 秒")
