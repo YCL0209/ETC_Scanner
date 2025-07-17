@@ -323,13 +323,10 @@ extension DownloadManager: URLSessionDelegate {
     func urlSessionDidFinishEvents(forBackgroundURLSession session: URLSession) {
         print("[DownloadManager] 背景下載事件完成")
         
-        // 通知系統背景任務完成
+        // 如果需要背景任務完成處理，可以在這裡添加
         DispatchQueue.main.async {
-            if let appDelegate = UIApplication.shared.delegate as? AppDelegate,
-               let completionHandler = appDelegate.backgroundSessionCompletionHandler {
-                appDelegate.backgroundSessionCompletionHandler = nil
-                completionHandler()
-            }
+            // 背景任務完成後的處理
+            print("[DownloadManager] 背景任務已完成")
         }
     }
 }
