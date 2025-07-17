@@ -70,7 +70,7 @@ extension ViewController {
     }
     
     // MARK: - Search UI Updates
-    private func showNoResultsMessage() {
+    func showNoResultsMessage() {
         let alert = UIAlertController(
             title: "搜尋結果",
             message: "找不到符合「\(currentSearchQuery)」的項目",

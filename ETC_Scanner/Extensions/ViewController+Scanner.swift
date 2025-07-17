@@ -66,7 +66,7 @@ extension ViewController {
     }
     
     // MARK: - Private Helper Methods
-    private func checkForDuplicate(code: String) -> Int? {
+    func checkForDuplicate(code: String) -> Int? {
         for (index, item) in scannedItems.enumerated() {
             if item.code == code && (selectedItemIndex == nil || selectedItemIndex != index) {
                 return index
@@ -75,7 +75,7 @@ extension ViewController {
         return nil
     }
     
-    private func handleDuplicateScan(at index: Int) {
+    func handleDuplicateScan(at index: Int) {
         // 清除所有選擇
         for i in 0..<scannedItems.count {
             scannedItems[i].isSelected = false
@@ -102,7 +102,7 @@ extension ViewController {
         resetScanner(complete: false)
     }
     
-    private func createScanItem(with code: String) -> ScanItem {
+    func createScanItem(with code: String) -> ScanItem {
         let dateFormatter = DateFormatter()
         dateFormatter.dateFormat = "yyyy/MM/dd HH:mm:ss"
         let timestamp = dateFormatter.string(from: Date())
@@ -124,7 +124,7 @@ extension ViewController {
         )
     }
     
-    private func showDuplicateAlert(for code: String) {
+    func showDuplicateAlert(for code: String) {
         let alert = UIAlertController(
             title: "重複掃描",
             message: "條碼 \(code) 已經存在",

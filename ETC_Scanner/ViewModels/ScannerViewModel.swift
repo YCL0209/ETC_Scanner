@@ -7,6 +7,7 @@
 
 import Foundation
 import UIKit
+import AudioToolbox
 
 // MARK: - ScannerViewModel Protocol
 protocol ScannerViewModelDelegate: AnyObject {

@@ -90,7 +90,7 @@ extension ViewController {
     }
     
     // MARK: - Actions
-    private func handleEditButtonTapped(for item: ScanItem, at indexPath: IndexPath) {
+    func handleEditButtonTapped(for item: ScanItem, at indexPath: IndexPath) {
         let originalIndex: Int
         
         if isSearching {

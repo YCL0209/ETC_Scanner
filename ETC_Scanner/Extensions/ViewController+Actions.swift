@@ -12,101 +12,17 @@ import UniformTypeIdentifiers
 // MARK: - Button Actions
 extension ViewController {
     
-    // MARK: - Import Actions
-    @IBAction func importButtonTapped(_ sender: UIButton) {
-        // 顯示選項
-        let alert = UIAlertController(title: "匯入選項", message: "請選擇匯入方式", preferredStyle: .actionSheet)
-        
-        // 從檔案匯入
-        alert.addAction(UIAlertAction(title: "從檔案匯入", style: .default) { [weak self] _ in
-            self?.showFileImportPicker()
-        })
-        
-        // 從伺服器下載
-        alert.addAction(UIAlertAction(title: "從伺服器下載", style: .default) { [weak self] _ in
-            self?.showServerFileList()
-        })
-        
-        // 取消
-        alert.addAction(UIAlertAction(title: "取消", style: .cancel))
-        
-        // iPad 適配
-        if let popover = alert.popoverPresentationController {
-            popover.sourceView = sender
-            popover.sourceRect = sender.bounds
-        }
-        
-        present(alert, animated: true)
-    }
+    // MARK: - Import Actions Helper Methods
     
-    // MARK: - Export Actions
-    @IBAction func exportButtonTapped(_ sender: UIButton) {
-        let hasSelection = scannedItems.contains { $0.isSelected }
-        
-        let alert = UIAlertController(title: "匯出選項", message: "請選擇匯出方式", preferredStyle: .actionSheet)
-        
-        // 匯出所選
-        if hasSelection {
-            alert.addAction(UIAlertAction(title: "匯出所選項目", style: .default) { [weak self] _ in
-                self?.exportSelectedItems()
-            })
-        }
-        
-        // 匯出全部
-        alert.addAction(UIAlertAction(title: "匯出全部項目", style: .default) { [weak self] _ in
-            self?.exportAllItems()
-        })
-        
-        // 取消
-        alert.addAction(UIAlertAction(title: "取消", style: .cancel))
-        
-        // iPad 適配
-        if let popover = alert.popoverPresentationController {
-            popover.sourceView = sender
-            popover.sourceRect = sender.bounds
-        }
-        
-        present(alert, animated: true)
-    }
+    // MARK: - Export Actions Helper Methods
     
-    // MARK: - Delete Actions
-    @IBAction func deleteButtonTapped(_ sender: UIButton) {
-        guard let selectedIndex = selectedItemIndex else {
-            showAlert(title: "提示", message: "請先選擇要刪除的項目")
-            return
-        }
-        
-        // 確認刪除
-        let item = scannedItems[selectedIndex]
-        let alert = UIAlertController(
-            title: "確認刪除",
-            message: "確定要刪除條碼 \(item.code) 嗎？",
-            preferredStyle: .alert
-        )
-        
-        alert.addAction(UIAlertAction(title: "刪除", style: .destructive) { [weak self] _ in
-            self?.deleteSelectedItem()
-        })
-        
-        alert.addAction(UIAlertAction(title: "取消", style: .cancel))
-        
-        present(alert, animated: true)
-    }
+    // MARK: - Delete Actions Helper Methods
     
-    // MARK: - Search Actions
-    @IBAction func searchButtonTapped(_ sender: UIButton) {
-        if isSearching {
-            // 結束搜尋
-            endSearch()
-        } else {
-            // 開始搜尋
-            showSearchDialog()
-        }
-    }
+    // MARK: - Search Actions Helper Methods
     
-    // MARK: - Private Helper Methods
+    // MARK: - Helper Methods
     
-    private func showFileImportPicker() {
+    func showFileImportPicker() {
         let documentPicker: UIDocumentPickerViewController
         
         if #available(iOS 14.0, *) {
@@ -121,22 +37,22 @@ extension ViewController {
         present(documentPicker, animated: true)
     }
     
-    private func showServerFileList() {
+    func showServerFileList() {
         // 這裡將調用 NetworkManager 來獲取檔案列表
         // 暫時顯示提示
         showAlert(title: "功能開發中", message: "伺服器檔案列表功能即將推出")
     }
     
-    private func exportSelectedItems() {
+    func exportSelectedItems() {
         let selectedItems = scannedItems.filter { $0.isSelected }
         exportItems(selectedItems, filename: "selected_items_\(Date().timeIntervalSince1970).csv")
     }
     
-    private func exportAllItems() {
+    func exportAllItems() {
         exportItems(scannedItems, filename: "all_items_\(Date().timeIntervalSince1970).csv")
     }
     
-    private func exportItems(_ items: [ScanItem], filename: String) {
+    func exportItems(_ items: [ScanItem], filename: String) {
         // 使用 EmailManager 或其他方式匯出
         DependencyContainer.shared.emailService.showSendEmailDialog(
             on: self,
@@ -150,7 +66,7 @@ extension ViewController {
         }
     }
     
-    private func deleteSelectedItem() {
+    func deleteSelectedItem() {
         guard let index = selectedItemIndex else { return }
         
         // 刪除項目
@@ -170,7 +86,7 @@ extension ViewController {
         showAlert(title: "成功", message: "項目已刪除")
     }
     
-    private func showSearchDialog() {
+    func showSearchDialog() {
         let alert = UIAlertController(title: "搜尋", message: "請輸入搜尋關鍵字", preferredStyle: .alert)
         
         alert.addTextField { textField in
@@ -189,7 +105,7 @@ extension ViewController {
         present(alert, animated: true)
     }
     
-    private func endSearch() {
+    func endSearch() {
         isSearching = false
         filteredItems = []
         currentSearchQuery = ""

@@ -10,7 +10,7 @@ import CoreBluetooth
 import AudioToolbox 
 
 // MARK: - Properties
-struct ScanItem {
+struct ScanItem: Codable {
     let code: String           //掃描碼
     var time: String
     var building: String?      // 棟別
