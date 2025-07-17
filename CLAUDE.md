@@ -137,43 +137,92 @@ xcodebuild -exportArchive -archivePath build/ETC_Scanner.xcarchive \
 ### Core Purpose
 ETC Scanner is a specialized iOS application for managing Electronic Toll Collection (ETC) data in a parking/property management context. It integrates Bluetooth barcode scanning, data management, and cloud synchronization.
 
+### 🏗️ Architecture Pattern
+**MVVM (Model-View-ViewModel)** with Extensions and Dependency Injection
+- Separation of concerns through architectural layers
+- Dependency injection for better testability
+- Protocol-oriented programming for flexibility
+
 ### Key Components
 
-1. **Main View Controller (ViewController.swift:1)**
-   - Core business logic for ETC barcode scanning
-   - Bluetooth scanner integration via CoreBluetooth
-   - CSV import/export functionality with memory optimization
-   - API communication with backend server
-   - Table view management for scan items
-   - File size validation and stream processing support
+1. **View Layer**
+   - **ViewController.swift**: Main view controller (refactored with extensions)
+   - **Extensions/** folder:
+     - `ViewController+Scanner.swift`: Scanner-related functionality
+     - `ViewController+TableView.swift`: Table view management
+     - `ViewController+Actions.swift`: User interaction handlers
+     - `ViewController+Search.swift`: Search functionality
+   - **EditDetailViewController.swift**: Item detail editing
+   - **ScanItemCell.swift**: Custom table view cell
+   - **CustomAlphaNumKeyboard.swift**: Custom keyboard for input
 
-2. **Email System (EmailManager.swift:1)**
-   - Dual-mode email sending:
-     - Native iOS mail composer (MFMailComposeViewController)
-     - Web API via Google Apps Script (fallback)
-   - HTML table generation for scan data
-   - CSV attachment creation with FileHandle optimization
-   - Memory-efficient bulk data export
+2. **ViewModel Layer** *(New)*
+   - **ViewModels/** folder:
+     - `ScannerViewModel.swift`: Business logic for scanning operations
+     - Handles data manipulation and state management
+     - Provides data binding for the view layer
 
-3. **Network Layer (NetworkManager)**
-   - Backend API: https://sui-yao.com
-   - API Key: MasHsieh0817 (in x-api-key header)
-   - Endpoints: file upload/download, data submission
-   - Additional email API via Google Apps Script
-   - Optimized URLSession configuration for large file transfers
-   - Extended timeout settings (5-10 minutes)
+3. **Service Layer** *(Refactored)*
+   - **Services/** folder:
+     - `NetworkManager.swift`: API communication
+       - Backend API: https://sui-yao.com
+       - API Key: MasHsieh0817 (in x-api-key header)
+       - Optimized URLSession configuration
+     - `EmailManager.swift`: Email functionality
+       - Dual-mode: native iOS mail & Google Apps Script API
+       - HTML table generation and CSV attachments
+     - `DownloadManager.swift`: File download management
+       - Background download support
+       - Progress tracking and retry logic
+     - `ServiceProtocols.swift`: Service interface definitions
 
-4. **Data Model**
-   - ScanItem struct: barcode, building, household, parking info, timestamps
-   - CSV format for bulk import/export
-   - UserDefaults for local persistence
+4. **Model Layer**
+   - `ScanItem` struct (Codable): barcode, building, household, parking info
+   - CSV format support for import/export
+   - Local persistence via UserDefaults
+   - Stream processing for large files
 
-5. **CSV Stream Reader (CSVStreamReader.swift:1)** *(New)*
-   - Stream-based CSV file reading to avoid memory overload
-   - Configurable buffer size (default 4KB)
-   - Batch processing support
-   - Memory-efficient line-by-line parsing
-   - Automatic memory management with autoreleasepool
+5. **Supporting Components**
+   - **CSVStreamReader.swift**: Memory-efficient CSV processing
+   - **AppError.swift**: Unified error handling system
+   - **DependencyContainer.swift**: Dependency injection container
+   - **AppDelegate.swift**: App lifecycle management
+   - **SceneDelegate.swift**: Scene lifecycle (iOS 13+)
+
+### 📁 Project Structure
+
+```
+ETC_Scanner/
+├── ViewModels/                    # MVVM ViewModel Layer
+│   └── ScannerViewModel.swift     # Scanning business logic
+├── Services/                      # Service Layer
+│   ├── NetworkManager.swift       # API communication
+│   ├── EmailManager.swift         # Email functionality
+│   ├── DownloadManager.swift      # File download management
+│   └── ServiceProtocols.swift     # Service interfaces
+├── Extensions/                    # ViewController Extensions
+│   ├── ViewController+Scanner.swift    # Scanner functionality
+│   ├── ViewController+TableView.swift  # Table view management
+│   ├── ViewController+Actions.swift    # User interactions
+│   └── ViewController+Search.swift     # Search functionality
+├── View Controllers/
+│   ├── ViewController.swift       # Main view controller
+│   ├── EditDetailViewController.swift  # Detail editing
+│   └── LaunchScreenViewController.swift # Launch screen
+├── Views/
+│   ├── ScanItemCell.swift         # Custom table cell
+│   └── CustomAlphaNumKeyboard.swift # Custom keyboard
+├── Models/
+│   └── ScanItem (in ViewController.swift) # Data model
+├── Utilities/
+│   ├── CSVStreamReader.swift      # CSV stream processing
+│   ├── AppError.swift             # Error handling
+│   └── DependencyContainer.swift  # Dependency injection
+└── Resources/
+    ├── Assets.xcassets/           # Images and colors
+    ├── Base.lproj/                # Storyboards
+    └── Info.plist                 # App configuration
+```
 
 ### API Integration
 
@@ -474,7 +523,7 @@ Edit(file_path="ETC_Scanner/EmailManager.swift",
 1. **🔍 Search Existing ViewControllers** - Use Grep to find similar functionality
 2. **📋 Check Storyboard Connections** - Ensure UI elements are properly linked
 3. **🤔 Evaluate Architecture** - Can this be added to existing VC? → DO IT
-4. **✅ Follow MVC Pattern** - Keep business logic in controllers, not views
+4. **✅ Follow MVVM Pattern** - Keep business logic in ViewModels, not ViewControllers
 5. **📱 Test on Device** - Especially for Bluetooth and hardware features
 
 ### Common iOS Development Tasks:
@@ -505,6 +554,23 @@ style: Format Swift code according to conventions
 ```
 
 ## 📅 CHANGELOG
+
+### Version 3.0 (2025-07-17) - MVVM Architecture Refactoring
+- 🏗️ **Major Architecture Overhaul**
+  - Migrated from MVC to MVVM architecture pattern
+  - Implemented ViewModels layer for business logic separation
+  - Added Extensions to decompose massive ViewController
+  - Introduced Dependency Injection Container for better testability
+- 🎨 **Code Organization Improvements**
+  - Created Services folder consolidating all manager classes
+  - Added unified error handling with AppError
+  - Implemented service protocols for consistent interfaces
+  - Separated ViewController functionality into focused extensions
+- 🔧 **Technical Improvements**
+  - Enhanced code maintainability and testability
+  - Reduced ViewController from 2000+ lines to manageable size
+  - Improved separation of concerns across layers
+  - Better memory management and performance optimization
 
 ### Version 2.3 (2025-07-17)
 - ✨ Added CSV stream reader for memory-efficient large file processing
