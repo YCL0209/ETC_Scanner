@@ -399,6 +399,114 @@ class EmailManager: NSObject, MFMailComposeViewControllerDelegate {
         return "<br><p style=\"color: gray; font-size: 12px;\">此郵件由 ETC Scanner 應用程式自動生成</p>"
     }
     
+    // MARK: - 優化的 CSV 生成方法（使用 FileHandle）
+    
+    /// 使用 FileHandle 生成 CSV 檔案，避免大量資料在記憶體中累積
+    /// - Parameter items: 要匯出的項目
+    /// - Returns: 生成的 CSV 檔案 URL，如果失敗則返回 nil
+    func generateCSVToFile(items: [ScanItem]) -> URL? {
+        // 建立臨時檔案
+        let tempDirectory = FileManager.default.temporaryDirectory
+        let fileName = "ETC_Export_\(Date().timeIntervalSince1970).csv"
+        let fileURL = tempDirectory.appendingPathComponent(fileName)
+        
+        // 建立檔案
+        guard FileManager.default.createFile(atPath: fileURL.path, contents: nil) else {
+            print("無法建立 CSV 檔案")
+            return nil
+        }
+        
+        // 開啟 FileHandle 寫入
+        guard let fileHandle = try? FileHandle(forWritingTo: fileURL) else {
+            print("無法開啟檔案進行寫入")
+            return nil
+        }
+        
+        defer {
+            fileHandle.closeFile()
+        }
+        
+        // 寫入 BOM (UTF-8 with BOM) 以確保 Excel 正確顯示中文
+        let bom = Data([0xEF, 0xBB, 0xBF])
+        fileHandle.write(bom)
+        
+        // 寫入標題行
+        let csvHeader = "序號,棟別,戶別,所有權人,承租人,電話,車位號碼,車種,車牌,ETAG\n"
+        if let headerData = csvHeader.data(using: .utf8) {
+            fileHandle.write(headerData)
+        }
+        
+        // 逐行寫入資料，使用 autoreleasepool 管理記憶體
+        for (index, item) in items.enumerated() {
+            autoreleasepool {
+                let row = generateCSVRow(index: index, item: item) + "\n"
+                if let rowData = row.data(using: .utf8) {
+                    fileHandle.write(rowData)
+                }
+                
+                // 每 100 筆資料強制寫入磁碟
+                if index % 100 == 0 {
+                    fileHandle.synchronizeFile()
+                }
+            }
+        }
+        
+        // 最後同步確保所有資料寫入
+        fileHandle.synchronizeFile()
+        
+        return fileURL
+    }
+    
+    /// 使用優化方法發送包含大量資料的郵件
+    func sendOptimizedMailWithCSV(
+        on viewController: UIViewController,
+        selectedItems: [ScanItem],
+        completion: ((Bool, String?) -> Void)? = nil
+    ) {
+        self.completionHandler = completion
+        
+        // 檢查是否可以發送郵件
+        guard MFMailComposeViewController.canSendMail() else {
+            showApiMailDialog(on: viewController, selectedItems: selectedItems, completion: completion)
+            return
+        }
+        
+        // 使用 FileHandle 生成 CSV 檔案
+        guard let csvFileURL = generateCSVToFile(items: selectedItems) else {
+            completion?(false, "無法生成 CSV 檔案")
+            return
+        }
+        
+        // 建立郵件編輯器
+        let mailComposer = MFMailComposeViewController()
+        mailComposer.mailComposeDelegate = self
+        mailComposer.setSubject("ETC 資料分享")
+        
+        // 生成 HTML 內容
+        let htmlContent = generateHTMLTable(items: selectedItems, message: "以下是選中的 ETC 資料：")
+        mailComposer.setMessageBody(htmlContent, isHTML: true)
+        
+        // 附加 CSV 檔案
+        do {
+            let csvData = try Data(contentsOf: csvFileURL)
+            mailComposer.addAttachmentData(
+                csvData,
+                mimeType: "text/csv",
+                fileName: csvFileURL.lastPathComponent
+            )
+        } catch {
+            print("無法讀取 CSV 檔案: \(error)")
+        }
+        
+        // 顯示郵件編輯器
+        viewController.present(mailComposer, animated: true)
+        
+        // 清理臨時檔案
+        DispatchQueue.main.asyncAfter(deadline: .now() + 60) {
+            try? FileManager.default.removeItem(at: csvFileURL)
+        }
+    }
+    
     // 重寫 CSV 生成方法
     func generateCSV(items: [ScanItem]) -> String {
         // 生成 CSV 頭部

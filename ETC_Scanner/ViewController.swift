@@ -99,6 +99,38 @@ class NetworkManager {
         }
     }
     
+    // 優化的 URLSession 配置
+    private(set) lazy var optimizedSession: URLSession = {
+        let config = URLSessionConfiguration.default
+        
+        // 增加超時時間以處理大檔案
+        config.timeoutIntervalForRequest = 300 // 5 分鐘
+        config.timeoutIntervalForResource = 600 // 10 分鐘
+        
+        // 優化連接設定
+        config.httpMaximumConnectionsPerHost = 2
+        config.httpShouldUsePipelining = true
+        config.httpShouldSetCookies = false
+        
+        // 設定快取策略
+        config.requestCachePolicy = .reloadIgnoringLocalCacheData
+        config.urlCache = nil
+        
+        // 允許蜂窩網路
+        config.allowsCellularAccess = true
+        config.allowsExpensiveNetworkAccess = true
+        config.allowsConstrainedNetworkAccess = true
+        
+        // 背景任務設定
+        config.isDiscretionary = false
+        config.sessionSendsLaunchEvents = true
+        
+        // 設定網路服務類型為背景傳輸
+        config.networkServiceType = .background
+        
+        return URLSession(configuration: config)
+    }()
+    
     private init() {}
 
     // 修改檢查伺服器狀態的方法
@@ -114,7 +146,7 @@ class NetworkManager {
         var request = URLRequest(url: url, timeoutInterval: 15) // 增加逾時時間到 15 秒
         request.setValue(apiKey, forHTTPHeaderField: "x-api-key") // 添加 API 金鑰
         
-        let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
+        let task = optimizedSession.dataTask(with: request) { (data, response, error) in
             if let error = error {
                 completion(false, "網路錯誤：\(error.localizedDescription)")
                 return
@@ -173,7 +205,7 @@ class NetworkManager {
         request.timeoutInterval = 120.0 // 延長超時時間到120秒，避免大檔案下載截斷
         
         
-        let task = URLSession.shared.downloadTask(with: request) { [weak self] (tempURL, response, error) in
+        let task = optimizedSession.downloadTask(with: request) { [weak self] (tempURL, response, error) in
             let downloadEndTime = Date()
             let downloadDuration = downloadEndTime.timeIntervalSince(downloadStartTime)
             
@@ -265,14 +297,50 @@ class NetworkManager {
                 let lines = csvString.components(separatedBy: .newlines)
                 let nonEmptyLines = lines.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
                 
+                // 詳細的完整性檢查
+                var integrityWarnings: [String] = []
                 
-                // 資料完整性警告
-                if nonEmptyLines.count < 315 {
+                // 檢查1: 行數是否過少
+                if nonEmptyLines.count < 2 {
+                    integrityWarnings.append("檔案只有 \(nonEmptyLines.count) 行資料，可能不完整")
                 }
                 
+                // 檢查2: 檔案大小是否符合預期
                 if expectedSize > 0 && Int64(data.count) != expectedSize {
+                    let percentage = Double(data.count) * 100.0 / Double(expectedSize)
+                    integrityWarnings.append(String(format: "檔案大小只有預期的 %.1f%%", percentage))
                 }
                 
+                // 檢查3: 最後一行是否完整（應該包含逗號）
+                if let lastLine = nonEmptyLines.last, !lastLine.isEmpty {
+                    let commaCount = lastLine.components(separatedBy: ",").count - 1
+                    if commaCount < 3 {  // CSV 應該至少有 3 個逗號
+                        integrityWarnings.append("最後一行資料可能不完整")
+                    }
+                }
+                
+                // 檢查4: CSV 格式是否正確（檢查第一行是否為標題）
+                if let firstLine = nonEmptyLines.first {
+                    let expectedHeaders = ["序號", "棟別", "戶別", "條碼"]
+                    let hasValidHeader = expectedHeaders.contains { firstLine.contains($0) }
+                    if !hasValidHeader {
+                        integrityWarnings.append("CSV 標題格式可能不正確")
+                    }
+                }
+                
+                // 如果有警告，記錄並通知
+                if !integrityWarnings.isEmpty {
+                    print("下載完整性警告：")
+                    integrityWarnings.forEach { print("- \($0)") }
+                    
+                    // 將警告訊息附加到資料中（透過 userInfo）
+                    let warningInfo = ["warnings": integrityWarnings]
+                    NotificationCenter.default.post(
+                        name: NSNotification.Name("DownloadIntegrityWarning"),
+                        object: nil,
+                        userInfo: warningInfo
+                    )
+                }
             }
             
             completion(.success(data))
@@ -310,7 +378,7 @@ class NetworkManager {
             data.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
             
             // 5. 建立並執行上傳任務
-            let task = URLSession.shared.uploadTask(with: request, from: data) { (responseData, response, error) in
+            let task = optimizedSession.uploadTask(with: request, from: data) { (responseData, response, error) in
                 if let error = error {
                     completion(false, error)
                     return
@@ -354,7 +422,7 @@ class NetworkManager {
         // 設定更短的超時時間
         request.timeoutInterval = 8.0
         
-        let task = URLSession.shared.dataTask(with: request) { (data, response, error) in
+        let task = optimizedSession.dataTask(with: request) { (data, response, error) in
             if let error = error {
                 completion(.failure(error))
                 return
@@ -1539,8 +1607,27 @@ private func importFromLocalFile() {
                 let fileAction = UIAlertAction(title: actionTitle, style: .default) { [weak self] _ in
                     self?.showLoadingAlert(message: "正在下載檔案...")
                     
+                    // 先註冊完整性警告通知
+                    let notificationName = NSNotification.Name("DownloadIntegrityWarning")
+                    var observer: NSObjectProtocol?
+                    observer = NotificationCenter.default.addObserver(
+                        forName: notificationName,
+                        object: nil,
+                        queue: .main
+                    ) { [weak self] notification in
+                        if let warnings = notification.userInfo?["warnings"] as? [String] {
+                            let warningMessage = warnings.joined(separator: "\n")
+                            self?.showAlert(title: "⚠️ 資料完整性警告", message: warningMessage)
+                        }
+                    }
+                    
                     NetworkManager.shared.downloadCSV(fileName: fileInfo.fileName) { result in
                         DispatchQueue.main.async {
+                            // 移除通知觀察者
+                            if let observer = observer {
+                                NotificationCenter.default.removeObserver(observer)
+                            }
+                            
                             self?.dismissLoadingAlert {
                                 switch result {
                                 case .success(let data):
@@ -1908,7 +1995,7 @@ private func uploadWithSimpleFileName(content: String, fileName: String, for bui
     data.append("--\(boundary)--\r\n".data(using: .utf8)!)
     
     // 執行上傳任務
-    let task = URLSession.shared.uploadTask(with: request, from: data) { [weak self] responseData, response, error in
+    let task = NetworkManager.shared.optimizedSession.uploadTask(with: request, from: data) { [weak self] responseData, response, error in
         DispatchQueue.main.async {
             guard let self = self else { return }
             self.dismissLoadingAlert()
@@ -2121,7 +2208,98 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
         }
     }
     
+    // 檢查檔案大小的輔助方法
+    private func checkFileSize(at url: URL) -> (isValid: Bool, size: Int64) {
+        do {
+            let attributes = try FileManager.default.attributesOfItem(atPath: url.path)
+            let fileSize = attributes[.size] as? Int64 ?? 0
+            let maxSize: Int64 = 50 * 1024 * 1024 // 50MB 限制
+            
+            return (fileSize <= maxSize, fileSize)
+        } catch {
+            print("無法獲取檔案大小: \(error)")
+            return (false, 0)
+        }
+    }
+    
     private func parseCSV(from url: URL) {
+    // 先檢查檔案大小
+    let fileSizeCheck = checkFileSize(at: url)
+    
+    if !fileSizeCheck.isValid {
+        let sizeMB = Double(fileSizeCheck.size) / (1024 * 1024)
+        DispatchQueue.main.async { [weak self] in
+            let alert = UIAlertController(
+                title: "檔案過大",
+                message: String(format: "檔案大小為 %.2f MB，超過 50MB 限制。處理大檔案可能導致應用程式當機。是否繼續？", sizeMB),
+                preferredStyle: .alert
+            )
+            
+            alert.addAction(UIAlertAction(title: "取消", style: .cancel))
+            alert.addAction(UIAlertAction(title: "使用串流處理（推薦）", style: .default) { _ in
+                self?.parseCSVWithStreamReader(from: url)
+            })
+            alert.addAction(UIAlertAction(title: "強制載入全部（可能當機）", style: .destructive) { _ in
+                self?.performCSVParsing(from: url)
+            })
+            
+            self?.present(alert, animated: true)
+        }
+        return
+    }
+    
+    // 檔案大小正常，直接處理
+    performCSVParsing(from: url)
+    }
+    
+    // 使用串流讀取器處理大型 CSV 檔案
+    private func parseCSVWithStreamReader(from url: URL) {
+        showLoadingAlert(message: "正在使用串流方式處理檔案...")
+        
+        DispatchQueue.global(qos: .userInitiated).async { [weak self] in
+            guard let self = self else { return }
+            
+            var allNewItems: [ScanItem] = []
+            var processedCount = 0
+            let batchSize = 100
+            
+            // 使用串流讀取器批次處理
+            CSVStreamReader.processCSVInBatches(
+                url: url,
+                batchSize: batchSize
+            ) { batchItems in
+                allNewItems.append(contentsOf: batchItems)
+                processedCount += batchItems.count
+                
+                // 更新進度
+                DispatchQueue.main.async { [weak self] in
+                    self?.showLoadingAlert(message: "正在處理檔案... 已處理 \(processedCount) 筆資料")
+                }
+            }
+            
+            // 完成處理，更新 UI
+            DispatchQueue.main.async { [weak self] in
+                guard let self = self else { return }
+                
+                self.dismissLoadingAlert()
+                
+                if !allNewItems.isEmpty {
+                    self.scannedItems.insert(contentsOf: allNewItems, at: 0)
+                    
+                    CATransaction.begin()
+                    CATransaction.setDisableActions(true)
+                    self.tableView?.reloadData()
+                    CATransaction.commit()
+                    
+                    self.showAlert(title: "成功", message: "已使用串流方式匯入 \(allNewItems.count) 筆資料")
+                } else {
+                    self.showAlert(title: "提示", message: "未找到有效的數據記錄")
+                }
+            }
+        }
+    }
+    
+    private func performCSVParsing(from url: URL) {
     // 顯示加載中提示
     showLoadingAlert(message: "正在處理檔案...")
     
@@ -2144,6 +2322,7 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
             
             // 用於記錄新添加的項目
             var newItems: [ScanItem] = []
+            let batchSize = 100 // 每批處理 100 筆資料
             
             // 判斷檔案是 AB 棟還是 CDE 棟
             var isABBuilding = false
@@ -2152,26 +2331,28 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
             // 假設CSV的標題行為：條碼,棟別,戶別,車位號碼,車種,車牌,ETAG
             // 跳過標題行
             for (index, row) in rows.dropFirst().enumerated() {
-                let actualRowNumber = index + 2  // +2 因為跳過標題行且從1開始計數
-                
-                
-                // 檢查當前線程是否應該取消操作 (如果 self 已被釋放)
-                guard self != nil else { 
-                    break 
-                }
-                
-                
-                // 移除多餘的空白
-                let trimmedRow = row.trimmingCharacters(in: .whitespacesAndNewlines)
-                
-                
-                guard !trimmedRow.isEmpty else { 
-                    continue 
-                }
-                
-                
-                let columns = trimmedRow.components(separatedBy: ",")
-                    .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
+                // 使用 autoreleasepool 確保每次迴圈的記憶體都被釋放
+                autoreleasepool {
+                    let actualRowNumber = index + 2  // +2 因為跳過標題行且從1開始計數
+                    
+                    
+                    // 檢查當前線程是否應該取消操作 (如果 self 已被釋放)
+                    guard self != nil else { 
+                        return // 從 autoreleasepool 返回
+                    }
+                    
+                    
+                    // 移除多餘的空白
+                    let trimmedRow = row.trimmingCharacters(in: .whitespacesAndNewlines)
+                    
+                    
+                    guard !trimmedRow.isEmpty else { 
+                        return // 從 autoreleasepool 返回
+                    }
+                    
+                    
+                    let columns = trimmedRow.components(separatedBy: ",")
+                        .map { $0.trimmingCharacters(in: .whitespacesAndNewlines) }
                 
                 
                 
@@ -2214,7 +2395,16 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
                     
                     newItems.append(newItem)
                     
-                }
+                    // 每處理 batchSize 筆資料，更新一次進度
+                    if newItems.count % batchSize == 0 {
+                        let processedCount = newItems.count
+                        DispatchQueue.main.async { [weak self] in
+                            self?.showLoadingAlert(message: "正在處理檔案... 已處理 \(processedCount) 筆資料")
+                        }
+                    }
+                    
+                    }
+                } // autoreleasepool 結束
             }
             
             
@@ -2465,7 +2655,7 @@ private func uploadTestFile(_ fileURL: URL) {
         data.append("\r\n--\(boundary)--\r\n".data(using: .utf8)!)
         
         // 創建上傳任務
-        let task = URLSession.shared.uploadTask(with: request, from: data) { [weak self] responseData, response, error in
+        let task = NetworkManager.shared.optimizedSession.uploadTask(with: request, from: data) { [weak self] responseData, response, error in
             DispatchQueue.main.async {
                 guard let self = self else { return }
                 
