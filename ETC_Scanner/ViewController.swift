@@ -1089,6 +1089,28 @@ private func importFromLocalFile() {
                                     if let csvString = String(data: data, encoding: .utf8) {
                                         let lines = csvString.components(separatedBy: .newlines)
                                         
+                                        // 記錄下載的檔案資訊
+                                        print("📥 [伺服器下載] 檔案名稱: \(fileInfo.fileName)")
+                                        print("📥 [伺服器下載] 預期大小: \(fileInfo.size) bytes")
+                                        print("📥 [伺服器下載] 實際大小: \(data.count) bytes")
+                                        print("📥 [伺服器下載] 總行數: \(lines.count)")
+                                        
+                                        // 檢查檔案完整性
+                                        if data.count != fileInfo.size {
+                                            let percentage = Double(data.count) * 100.0 / Double(fileInfo.size)
+                                            print("⚠️ [伺服器下載] 警告：檔案大小不符，只有預期的 \(String(format: "%.1f", percentage))%")
+                                        }
+                                        
+                                        // 檢查最後一行
+                                        let nonEmptyLines = lines.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+                                        if let lastLine = nonEmptyLines.last {
+                                            let commaCount = lastLine.components(separatedBy: ",").count - 1
+                                            print("📥 [伺服器下載] 最後一行有 \(commaCount) 個逗號")
+                                            if commaCount < 6 {
+                                                print("⚠️ [伺服器下載] 警告：最後一行可能不完整")
+                                            }
+                                        }
+                                        
                                         let tempURL = FileManager.default.temporaryDirectory.appendingPathComponent(fileInfo.fileName)
                                         
                                         do {
@@ -1713,8 +1735,19 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
         DispatchQueue.global(qos: .userInitiated).async { [weak self] in
             guard let self = self else { return }
             
+            // 記錄檔案資訊
+            do {
+                let fileAttributes = try FileManager.default.attributesOfItem(atPath: url.path)
+                let fileSize = fileAttributes[.size] as? Int64 ?? 0
+                print("📊 [CSV串流] 開始串流處理檔案: \(url.lastPathComponent)")
+                print("📊 [CSV串流] 檔案大小: \(fileSize) bytes (\(fileSize/1024/1024) MB)")
+            } catch {
+                print("❌ [CSV串流] 無法獲取檔案資訊: \(error)")
+            }
+            
             var allNewItems: [ScanItem] = []
             var processedCount = 0
+            var duplicateCount = 0
             let batchSize = 100
             
             // 使用串流讀取器批次處理
@@ -1722,12 +1755,29 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
                 url: url,
                 batchSize: batchSize
             ) { batchItems in
-                allNewItems.append(contentsOf: batchItems)
+                // 過濾重複項目
+                let existingCodes = self.scannedItems.map { $0.code }
+                let newCodes = allNewItems.map { $0.code }
+                let allExistingCodes = existingCodes + newCodes
+                
+                let filteredBatchItems = batchItems.filter { item in
+                    let isDuplicate = allExistingCodes.contains(item.code)
+                    if isDuplicate {
+                        duplicateCount += 1
+                        print("📊 [CSV串流] 跳過重複條碼: \(item.code)")
+                    }
+                    return !isDuplicate
+                }
+                
+                allNewItems.append(contentsOf: filteredBatchItems)
                 processedCount += batchItems.count
                 
                 // 更新進度
                 DispatchQueue.main.async { [weak self] in
-                    self?.showLoadingAlert(message: "正在處理檔案... 已處理 \(processedCount) 筆資料")
+                    let message = duplicateCount > 0 ? 
+                        "正在處理檔案... 已處理 \(processedCount) 筆，跳過 \(duplicateCount) 筆重複" :
+                        "正在處理檔案... 已處理 \(processedCount) 筆資料"
+                    self?.showLoadingAlert(message: message)
                 }
             }
             
@@ -1745,7 +1795,23 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
                     self.tableView?.reloadData()
                     CATransaction.commit()
                     
-                    self.showAlert(title: "成功", message: "已使用串流方式匯入 \(allNewItems.count) 筆資料")
+                    // 建立匯入報告
+                    var reportMessage = "📊 串流匯入報告\n\n"
+                    reportMessage += "處理方式：串流處理\n"
+                    reportMessage += "總處理數：\(processedCount) 筆\n"
+                    reportMessage += "成功匯入：\(allNewItems.count) 筆\n"
+                    if duplicateCount > 0 {
+                        reportMessage += "重複跳過：\(duplicateCount) 筆\n"
+                    }
+                    
+                    print("📊 [CSV串流] ========== 串流匯入統計 ==========")
+                    print("📊 [CSV串流] 總處理數: \(processedCount) 筆")
+                    print("📊 [CSV串流] 成功匯入: \(allNewItems.count) 筆")
+                    print("📊 [CSV串流] 重複跳過: \(duplicateCount) 筆")
+                    print("📊 [CSV串流] ===================================")
+                    
+                    let alertTitle = duplicateCount > 0 ? "匯入完成" : "匯入成功"
+                    self.showAlert(title: alertTitle, message: reportMessage)
                 } else {
                     self.showAlert(title: "提示", message: "未找到有效的數據記錄")
                 }
@@ -1760,22 +1826,41 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
     // 移至背景線程處理
     DispatchQueue.global(qos: .userInitiated).async { [weak self] in
         do {
+            // 記錄檔案資訊
+            let fileAttributes = try FileManager.default.attributesOfItem(atPath: url.path)
+            let fileSize = fileAttributes[.size] as? Int64 ?? 0
+            print("📊 [CSV匯入] 開始處理檔案: \(url.lastPathComponent)")
+            print("📊 [CSV匯入] 檔案大小: \(fileSize) bytes (\(fileSize/1024) KB)")
+            
             let csvContent = try String(contentsOf: url, encoding: .utf8)
+            print("📊 [CSV匯入] 檔案內容長度: \(csvContent.count) 字元")
             
             let allLines = csvContent.components(separatedBy: .newlines)
+            print("📊 [CSV匯入] 原始行數: \(allLines.count)")
             
             // 改進行分割邏輯，處理各種換行符和檔案末尾情況
             var rows = csvContent.components(separatedBy: .newlines)
             
-            
-            
             // 過濾空行
+            let originalRowCount = rows.count
             rows = rows.filter { !$0.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty }
+            let emptyRowCount = originalRowCount - rows.count
+            print("📊 [CSV匯入] 有效行數: \(rows.count) (移除 \(emptyRowCount) 空行)")
             
+            // 檢查最後一行完整性
+            if let lastRow = rows.last {
+                let lastRowColumns = lastRow.components(separatedBy: ",").count
+                print("📊 [CSV匯入] 最後一行欄位數: \(lastRowColumns)")
+                if lastRowColumns < 7 {
+                    print("⚠️ [CSV匯入] 警告：最後一行可能不完整，只有 \(lastRowColumns) 個欄位")
+                }
+            }
             
-            
-            // 用於記錄新添加的項目
+            // 用於記錄新添加的項目和統計
             var newItems: [ScanItem] = []
+            var successCount = 0
+            var failedCount = 0
+            var duplicateCount = 0
             let batchSize = 100 // 每批處理 100 筆資料
             
             // 判斷檔案是 AB 棟還是 CDE 棟
@@ -1814,6 +1899,14 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
                 
                 if columns.count >= 1 && !columns[0].isEmpty {
                     
+                    // 檢查是否為重複條碼
+                    let isDuplicate = self?.scannedItems.contains { $0.code == columns[0] } ?? false
+                    if isDuplicate {
+                        duplicateCount += 1
+                        print("📊 [CSV匯入] 跳過重複條碼: \(columns[0]) (第 \(actualRowNumber) 行)")
+                        return // 跳過重複項目
+                    }
+                    
                     let dateFormatter = DateFormatter()
                     dateFormatter.dateFormat = "yyyy/MM/dd HH:mm:ss"
                     let timeString = dateFormatter.string(from: Date())
@@ -1848,6 +1941,7 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
                     )
                     
                     newItems.append(newItem)
+                    successCount += 1
                     
                     // 每處理 batchSize 筆資料，更新一次進度
                     if newItems.count % batchSize == 0 {
@@ -1857,14 +1951,29 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
                         }
                     }
                     
-                    }
+                    } else {
+                    failedCount += 1
+                    print("📊 [CSV匯入] 無效資料行: 第 \(actualRowNumber) 行，欄位數: \(columns.count)")
+                }
                 } // autoreleasepool 結束
             }
             
+            // 打印匯入統計
+            print("📊 [CSV匯入] ========== 匯入統計 ==========")
+            print("📊 [CSV匯入] 總行數: \(rows.count) (含標題)")
+            print("📊 [CSV匯入] 成功匯入: \(successCount) 筆")
+            print("📊 [CSV匯入] 失敗: \(failedCount) 筆")
+            print("📊 [CSV匯入] 重複跳過: \(duplicateCount) 筆")
+            print("📊 [CSV匯入] ==============================")
             
             // 如果解析到的項目數量與預期不符，顯示詳細資訊
             let expectedCount = rows.count - 1 // 減去標題行
             if newItems.count != expectedCount {
+                print("⚠️ [CSV匯入] 警告：預期匯入 \(expectedCount) 筆，實際匯入 \(newItems.count) 筆")
+                let missingCount = expectedCount - newItems.count
+                if missingCount > 0 {
+                    print("⚠️ [CSV匯入] 可能有 \(missingCount) 筆資料未成功匯入或被截斷")
+                }
             }
             
             // 回到主線程更新UI
@@ -1893,13 +2002,33 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
                         buildingType = "混合棟別"
                     }
                     
-                    let message = "已匯入 \(newItems.count) 筆\(buildingType)資料"
-                    if newItems.count != expectedCount {
-                        let detailedMessage = "\(message)\n\n⚠️ 注意：檔案共\(expectedCount)行資料，但只成功匯入\(newItems.count)筆"
-                        self.showAlert(title: "部分成功", message: detailedMessage)
-                    } else {
-                        self.showAlert(title: "成功", message: message)
+                    // 建立詳細的匯入報告
+                    var reportMessage = "📊 匯入報告\n\n"
+                    reportMessage += "檔案類型：\(buildingType)\n"
+                    reportMessage += "總行數：\(rows.count) (含標題)\n"
+                    reportMessage += "成功匯入：\(successCount) 筆\n"
+                    
+                    if failedCount > 0 {
+                        reportMessage += "失敗：\(failedCount) 筆\n"
                     }
+                    if duplicateCount > 0 {
+                        reportMessage += "重複跳過：\(duplicateCount) 筆\n"
+                    }
+                    
+                    // 檢查是否有資料截斷
+                    if newItems.count != expectedCount {
+                        reportMessage += "\n⚠️ 警告：可能存在資料截斷\n"
+                        reportMessage += "預期匯入：\(expectedCount) 筆\n"
+                        reportMessage += "實際匯入：\(newItems.count) 筆\n"
+                        let missingCount = expectedCount - newItems.count - duplicateCount - failedCount
+                        if missingCount > 0 {
+                            reportMessage += "未知原因遺失：\(missingCount) 筆"
+                        }
+                    }
+                    
+                    // 根據結果決定標題
+                    let alertTitle = (failedCount > 0 || newItems.count != expectedCount) ? "部分成功" : "匯入成功"
+                    self.showAlert(title: alertTitle, message: reportMessage)
                 } else {
                     self.showAlert(title: "提示", message: "未找到有效的數據記錄\n\n檔案共有\(rows.count)行（包含標題）")
                 }
