@@ -473,7 +473,7 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
 }
 
     // 將編輯視圖控制器的顯示邏輯移到獨立的方法中
-    private func showEditViewController(for index: Int) {
+    func showEditViewController(for index: Int) {
          // 第一步：強制釋放掃描器的焦點
          if scannerTextField.isFirstResponder {
             scannerTextField.resignFirstResponder()
