@@ -467,7 +467,7 @@ class EmailManager: NSObject, MFMailComposeViewControllerDelegate {
         
         // 檢查是否可以發送郵件
         guard MFMailComposeViewController.canSendMail() else {
-            showApiMailDialog(on: viewController, selectedItems: selectedItems, completion: completion)
+            showApiMailDialog(on: viewController, selectedItems: selectedItems, completion: completion ?? { _, _ in })
             return
         }
         
