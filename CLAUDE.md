@@ -1,10 +1,10 @@
 # CLAUDE.md
 
-> **Documentation Version**: 2.2  
-> **Last Updated**: 2025-07-07  
+> **Documentation Version**: 2.3  
+> **Last Updated**: 2025-07-17  
 > **Project**: ETC Scanner  
 > **Description**: iOS application for Electronic Toll Collection (ETC) data management with Bluetooth scanning  
-> **Features**: GitHub auto-backup, Task agents, technical debt prevention, Security mechanisms
+> **Features**: GitHub auto-backup, Task agents, technical debt prevention, Security mechanisms, Memory optimization, Stream processing
 
 This file provides essential guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
@@ -142,27 +142,38 @@ ETC Scanner is a specialized iOS application for managing Electronic Toll Collec
 1. **Main View Controller (ViewController.swift:1)**
    - Core business logic for ETC barcode scanning
    - Bluetooth scanner integration via CoreBluetooth
-   - CSV import/export functionality
+   - CSV import/export functionality with memory optimization
    - API communication with backend server
    - Table view management for scan items
+   - File size validation and stream processing support
 
 2. **Email System (EmailManager.swift:1)**
    - Dual-mode email sending:
      - Native iOS mail composer (MFMailComposeViewController)
      - Web API via Google Apps Script (fallback)
    - HTML table generation for scan data
-   - CSV attachment creation
+   - CSV attachment creation with FileHandle optimization
+   - Memory-efficient bulk data export
 
-3. **Network Layer**
+3. **Network Layer (NetworkManager)**
    - Backend API: https://sui-yao.com
    - API Key: MasHsieh0817 (in x-api-key header)
    - Endpoints: file upload/download, data submission
    - Additional email API via Google Apps Script
+   - Optimized URLSession configuration for large file transfers
+   - Extended timeout settings (5-10 minutes)
 
 4. **Data Model**
    - ScanItem struct: barcode, building, household, parking info, timestamps
    - CSV format for bulk import/export
    - UserDefaults for local persistence
+
+5. **CSV Stream Reader (CSVStreamReader.swift:1)** *(New)*
+   - Stream-based CSV file reading to avoid memory overload
+   - Configurable buffer size (default 4KB)
+   - Batch processing support
+   - Memory-efficient line-by-line parsing
+   - Automatic memory management with autoreleasepool
 
 ### API Integration
 
@@ -364,6 +375,73 @@ The app connects to two backend services:
 3. **No External Dependencies**: Uses only iOS system frameworks
 4. **Localization**: Traditional Chinese primary, some English UI elements
 5. **Code Style**: Follow existing patterns in ViewController.swift for consistency
+6. **Memory Management**: Use autoreleasepool for batch operations
+7. **File Operations**: Prefer FileHandle over in-memory string concatenation
+8. **Network Operations**: Use NetworkManager.shared.optimizedSession for all requests
+9. **Large Data Handling**: Implement stream processing for files > 50MB
+
+## 💾 MEMORY OPTIMIZATION & DATA INTEGRITY
+
+### 🚀 Performance Features (Added 2025-07-17)
+
+1. **File Size Validation**
+   - Automatic check before CSV parsing
+   - 50MB threshold warning
+   - Option to use stream processing for large files
+
+2. **Memory Management**
+   - Autoreleasepool wrapping for parse loops
+   - Batch processing (100 items per batch)
+   - Progress updates during processing
+
+3. **Download Integrity Checks**
+   - File size verification against expected content length
+   - Last line completeness validation
+   - CSV format verification
+   - Automatic retry mechanism (3 attempts)
+   - Integrity warning notifications
+
+4. **Stream Processing**
+   - CSVStreamReader for large file handling
+   - 4KB buffer size for optimal memory usage
+   - Line-by-line processing without full file load
+   - Automatic resource cleanup
+
+5. **Optimized CSV Generation**
+   - FileHandle-based writing to avoid memory accumulation
+   - UTF-8 BOM support for Excel compatibility
+   - Periodic disk synchronization (every 100 records)
+   - Temporary file management with auto-cleanup
+
+6. **Network Optimization**
+   - Extended timeouts (5min request, 10min resource)
+   - Background transfer support
+   - Connection pooling and pipelining
+   - Adaptive to cellular/constrained networks
+
+### 📊 Memory Usage Guidelines
+
+- **Small files (< 50MB)**: Use standard in-memory processing
+- **Large files (> 50MB)**: Automatically prompt for stream processing
+- **Export operations**: Always use FileHandle optimization
+- **Batch updates**: Process in groups of 100 to maintain UI responsiveness
+
+### 🛡️ Data Integrity Safeguards
+
+1. **Pre-processing Checks**
+   - File size validation
+   - Format verification
+   - Encoding detection
+
+2. **During Processing**
+   - Progress monitoring
+   - Memory pressure detection
+   - Batch validation
+
+3. **Post-processing Verification**
+   - Row count validation
+   - Data completeness check
+   - Success/partial success reporting
 
 ## 🚨 TECHNICAL DEBT PREVENTION
 
@@ -425,6 +503,30 @@ docs: Update API documentation
 test: Add unit tests for data model
 style: Format Swift code according to conventions
 ```
+
+## 📅 CHANGELOG
+
+### Version 2.3 (2025-07-17)
+- ✨ Added CSV stream reader for memory-efficient large file processing
+- 🚀 Implemented file size validation with 50MB threshold warning
+- 🛡️ Enhanced download integrity checks with multi-point validation
+- 💾 Optimized CSV generation using FileHandle to prevent memory issues
+- 🔧 Improved network layer with extended timeouts and connection optimization
+- 🐛 Fixed potential data truncation issues during server downloads
+- 📊 Added batch processing with progress updates for better UX
+
+### Version 2.2 (2025-07-07)
+- 🔐 Enhanced security mechanisms documentation
+- 📝 Added technical debt prevention guidelines
+- 🚨 Implemented critical rules system
+- 🐙 GitHub auto-backup workflow
+
+### Version 2.1 and earlier
+- Core ETC scanning functionality
+- Bluetooth barcode scanner integration
+- CSV import/export features
+- Email system with dual-mode sending
+- API integration with backend services
 
 ---
 
