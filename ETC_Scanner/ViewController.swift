@@ -98,13 +98,13 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     @IBOutlet weak var scanTextLabel: UILabel?
     @IBOutlet weak var searchButton: UIButton?  // 搜尋按鈕
     
-    private var scannerTextField: UITextField!
+    var scannerTextField: UITextField!
     var scannedItems: [ScanItem] = [] {
         didSet {
         }
     }
     
-    private var isScanning = false {
+    var isScanning = false {
         didSet {
             updateStatusLabel()
         }
@@ -868,7 +868,7 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     }
     
    // 修改掃描器的 setupTextField 方法
-     private func setupTextField() {
+     func setupTextField() {
         scannerTextField?.removeFromSuperview()
         
         scannerTextField = UITextField(frame: .zero)
