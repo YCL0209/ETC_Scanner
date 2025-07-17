@@ -74,9 +74,9 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
         return KeyboardRules(self)
     }()
     // MARK: - Properties
-    private var selectedItemIndex: Int?
-    private var filteredItems: [ScanItem] = []
-    private var isSearching = false
+    var selectedItemIndex: Int?
+    var filteredItems: [ScanItem] = []
+    var isSearching = false
     
     private struct ScannerState {
         var isScanning: Bool = false
@@ -390,44 +390,7 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     }
     }
     
-    // 顯示搜尋對話框
-    private func showSearchDialog() {
-    if scannerTextField.isFirstResponder {
-        scannerTextField.resignFirstResponder()
-    }
     
-    let alert = UIAlertController(title: "搜尋", message: "請輸入搜尋內容", preferredStyle: .alert)
-    
-    alert.addTextField { textField in
-        textField.placeholder = "輸入搜尋內容"
-        
-        // 確保創建新的 customKeyboard 實例
-        let customKeyboard = CustomAlphaNumKeyboard()
-        customKeyboard.targetTextField = textField
-        textField.inputView = customKeyboard
-        textField.delegate = self
-    }
-    
-    let searchAction = UIAlertAction(title: "搜尋", style: .default) { [weak self] _ in
-        if let searchText = alert.textFields?.first?.text {
-            self?.performSearch(searchText)
-        }
-    }
-    
-    let cancelAction = UIAlertAction(title: "取消", style: .cancel)
-    
-    alert.addAction(searchAction)
-    alert.addAction(cancelAction)
-    
-    present(alert, animated: true) {
-        alert.textFields?.first?.becomeFirstResponder()
-    }
-}
-    
-    // 更新搜尋按鈕的標題
-     private func updateSearchButtonTitle() {
-          searchButton?.setTitle(isSearching ? "返回搜尋" : "搜尋", for: .normal)
-    }
  
     
     // 執行搜尋
@@ -879,15 +842,6 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     }
     
     // 清除掃描狀態的方法
-    private func resetScanner(complete: Bool = false) {
-        scannerTextField.text = ""
-        scanTextLabel?.text = "等待掃描..."
-        isScanning = false
-        
-        if complete {
-            scannerTextField.resignFirstResponder()
-        }
-    }
     
     func textFieldDidEndEditing(_ textField: UITextField) {
         ensureTextFieldIsFocused()
@@ -976,18 +930,6 @@ override func viewDidDisappear(_ animated: Bool) {
         status.textColor = isScanning ? .systemGreen : .white
     }
     
-    private func updateButtonStates() {
-        let selectedCount = scannedItems.filter { $0.isSelected }.count
-        
-        // 更新匯入按鈕狀態（如果需要的話）
-        importButton?.isEnabled = true // 或根據其他條件設定
-        
-       // 匯出按鈕永遠啟用
-         exportButton?.isEnabled = true
-    
-        // 只有刪除按鈕需要檢查選擇狀態
-         deleteButton?.isEnabled = selectedCount > 0
-    }
     
     // MARK: - Actions
    @IBAction func importButtonTapped(_ sender: UIButton) {
@@ -2050,15 +1992,6 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
         return nil
     }
 
-    private func handleScanCompletion(_ fullScan: String) {
-    
-    if let epcCode = extractEPCCode(from: fullScan)?.uppercased(), !epcCode.isEmpty {
-        handleScanResult(epcCode: epcCode)
-    } else {
-        showAlert(title: "掃描錯誤", message: "無法識別有效的 EPC 碼")
-        resetScanner(complete: true)
-    }
-   }
 
     func textFieldDidBeginEditing(_ textField: UITextField) {
         if let customKeyboard = textField.inputView as? CustomAlphaNumKeyboard {

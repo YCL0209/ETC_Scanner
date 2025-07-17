@@ -7,6 +7,7 @@
 //
 
 import Foundation
+import UIKit
 
 // MARK: - Download Progress Protocol
 protocol DownloadManagerDelegate: AnyObject {
