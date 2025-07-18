@@ -1,0 +1,7 @@
+// 修改if success部分的代碼（大約在1674行）
+if success {
+    // 簡單的成功提示
+    self.showAlert(title: "上傳成功", message: "\(building.rawValue)的資料已成功上傳到伺服器")
+} else {
+    self.showAlert(title: "錯誤", message: "上傳失敗：伺服器回應代碼 \(httpResponse.statusCode)")
+}

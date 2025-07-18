@@ -35,9 +35,22 @@
 		89A0DEE22D64CA030004E8B1 /* CoreFoundation.framework */ = {isa = PBXFileReference; lastKnownFileType = wrapper.framework; name = CoreFoundation.framework; path = System/Library/Frameworks/CoreFoundation.framework; sourceTree = SDKROOT; };
 /* End PBXFileReference section */
 
+/* Begin PBXFileSystemSynchronizedBuildFileExceptionSet section */
+		891582D72D61AFD400044287 /* Exceptions for "ETC_Scanner" folder in "ETC_Scanner" target */ = {
+			isa = PBXFileSystemSynchronizedBuildFileExceptionSet;
+			membershipExceptions = (
+				Info.plist,
+			);
+			target = 891582AE2D61AFD400044287 /* ETC_Scanner */;
+		};
+/* End PBXFileSystemSynchronizedBuildFileExceptionSet section */
+
 /* Begin PBXFileSystemSynchronizedRootGroup section */
 		891582B12D61AFD400044287 /* ETC_Scanner */ = {
 			isa = PBXFileSystemSynchronizedRootGroup;
+			exceptions = (
+				891582D72D61AFD400044287 /* Exceptions for "ETC_Scanner" folder in "ETC_Scanner" target */,
+			);
 			path = ETC_Scanner;
 			sourceTree = "<group>";
 		};

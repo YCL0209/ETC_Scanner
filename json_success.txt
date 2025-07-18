@@ -1,0 +1,8 @@
+// 修改解析JSON部分的代碼（大約在1639行）
+if let jsonResponse = try JSONSerialization.jsonObject(with: responseData) as? [String: Any],
+   let serverFileName = jsonResponse["fileName"] as? String {
+    // 簡單的成功提示
+    self.showAlert(title: "上傳成功", message: "\(building.rawValue)的資料已成功上傳到伺服器
+伺服器檔名: \(serverFileName)")
+    return
+}
