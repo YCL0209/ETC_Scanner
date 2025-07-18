@@ -171,8 +171,8 @@ class DownloadManager: NSObject {
         // 檢查最後一行
         if let lastLine = nonEmptyLines.last, !lastLine.isEmpty {
             let commaCount = lastLine.components(separatedBy: ",").count - 1
-            if commaCount < 3 {
-                warnings.append("最後一行資料可能不完整（只有 \(commaCount) 個欄位）")
+            if commaCount < 9 {
+                warnings.append("最後一行資料可能不完整（只有 \(commaCount) 個逗號，應有 9 個逗號）")
             }
         }
         

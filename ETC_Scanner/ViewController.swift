@@ -1106,8 +1106,8 @@ private func importFromLocalFile() {
                                         if let lastLine = nonEmptyLines.last {
                                             let commaCount = lastLine.components(separatedBy: ",").count - 1
                                             print("📥 [伺服器下載] 最後一行有 \(commaCount) 個逗號")
-                                            if commaCount < 6 {
-                                                print("⚠️ [伺服器下載] 警告：最後一行可能不完整")
+                                            if commaCount < 9 {
+                                                print("⚠️ [伺服器下載] 警告：最後一行可能不完整，應有 9 個逗號（10 個欄位）")
                                             }
                                         }
                                         
