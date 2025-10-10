@@ -1825,10 +1825,10 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
                 timer.invalidate()
 
                 print("📡 [掃描器] 字符輸入完成，觸發掃描完成處理")
-                print("📡 [掃描器] 調用 handleScanCompletion(\(code.uppercased()))")
+                print("📡 [掃描器] 調用 handleScanResult(epcCode: \(code.uppercased()))")
 
-                // Trigger scan completion
-                self.handleScanCompletion(code.uppercased())
+                // Trigger scan completion - 使用與 HID 掃描器相同的處理邏輯
+                self.handleScanResult(epcCode: code.uppercased())
 
                 print("📡 [掃描器] 掃描流程結束\n")
             }
