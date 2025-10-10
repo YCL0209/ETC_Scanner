@@ -699,10 +699,11 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     private func handleScanResult(epcCode: String) {
         
         // 先檢查是否有重複的條碼（排除當前選中的項目）
+        // 只檢查 etagNumber 欄位，不檢查 code（車位編號）欄位
         var duplicateIndex: Int? = nil
         for (index, item) in scannedItems.enumerated() {
-            // 檢查 code 或 etagNumber 是否與掃描的條碼相同
-            if (item.code == epcCode || item.etagNumber == epcCode) {
+            // 只檢查 etagNumber 是否與掃描的條碼相同
+            if item.etagNumber == epcCode {
                 // 如果是當前選中的項目，跳過
                 if let selectedIndex = selectedItemIndex, index == selectedIndex {
                     continue
@@ -747,8 +748,8 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
                 updateSelectedItem(at: selectedIndex, with: epcCode)
             }
         } else {
-            // 檢查是否已存在相同的條碼（檢查 code 或 etagNumber）
-            if let existingIndex = scannedItems.firstIndex(where: { $0.code == epcCode || $0.etagNumber == epcCode }) {
+            // 檢查是否已存在相同的條碼（只檢查 etagNumber）
+            if let existingIndex = scannedItems.firstIndex(where: { $0.etagNumber == epcCode }) {
                 // 找到重複的條碼，顯示確認對話框
                 DispatchQueue.main.async {
                     let existingItem = self.scannedItems[existingIndex]
