@@ -62,7 +62,7 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
             // 掃描完成處理
             if string == "\n" || string == "\r" {
                 if let fullScan = textField.text?.uppercased() {
-                    viewController.handleScanCompletion(fullScan)
+                    viewController.handleScanResult(epcCode: fullScan)
                 }
                 return false
             }
