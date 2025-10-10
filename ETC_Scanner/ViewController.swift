@@ -78,9 +78,6 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     var filteredItems: [ScanItem] = []
     var isSearching = false
 
-    // 追蹤是否正在呈現模態視圖（EditDetailViewController）
-    private var isModalPresented = false
-
     private struct ScannerState {
         var isScanning: Bool = false
         var currentInput: String = ""
@@ -150,22 +147,10 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     // 確保方向鎖定在直向
     AppDelegate.AppUtility.lockOrientation(.portrait)
 
-    // 只在沒有模態視圖時重新設置掃描器
-    if !isModalPresented {
-        // 延遲執行以確保視圖已加載
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-            // 重新設置掃描器
-            self.setupTextField()
-        }
-    } else {
-        // EditDetailViewController 剛 dismiss，延遲後重置 flag 並恢復掃描器
-        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
-            self.isModalPresented = false
-            // 確保掃描器重新獲得焦點
-            if !self.scannerTextField.isFirstResponder {
-                self.scannerTextField.becomeFirstResponder()
-            }
-        }
+    // 延遲執行以確保視圖已加載
+    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+        // 重新設置掃描器
+        self.setupTextField()
     }
 }
     
@@ -529,9 +514,6 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
 
     // 將編輯視圖控制器的顯示邏輯移到獨立的方法中
     func showEditViewController(for index: Int) {
-         // 設置模態視圖呈現標記，防止 viewWillAppear 搶焦點
-         isModalPresented = true
-
          // 第一步：強制釋放掃描器的焦點
          if scannerTextField.isFirstResponder {
             scannerTextField.resignFirstResponder()
@@ -557,9 +539,6 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
                 // 修改呈現方式，使用全屏呈現更好地處理鍵盤
                 editVC.modalPresentationStyle = .fullScreen
                 self.present(editVC, animated: true, completion: nil)
-
-
-
              }
          }
     }
@@ -700,9 +679,7 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     }
     
     func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
-        // 只處理 scannerTextField，其他 TextField (例如 EditDetailViewController) 由各自的 delegate 處理
-        // 透過 isModalPresented flag，EditDetailViewController 呈現時 scannerTextField 不會獲得焦點
-        // 因此此方法不會被錯誤地觸發
+        // 只處理 scannerTextField
         guard textField == scannerTextField else {
             return true
         }
@@ -710,7 +687,7 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
         // 檢查是否為掃描結束
         if string == "\n" || string == "\r" || string.isEmpty {
             let fullScan = textField.text?.uppercased() ?? ""
-            handleScanCompletion(fullScan)
+            handleScanResult(epcCode: fullScan)
             return false
         }
 

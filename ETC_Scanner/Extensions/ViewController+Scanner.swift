@@ -31,23 +31,23 @@ extension ViewController {
             resetScanner(complete: false)
             return
         }
-        
+
         // 檢查重複
         if let duplicateIndex = checkForDuplicate(code: code) {
             handleDuplicateScan(at: duplicateIndex)
             return
         }
-        
+
         // 創建新掃描項目
         let newItem = createScanItem(with: code)
         scannedItems.append(newItem)
-        
+
         // 更新 UI
         tableView?.reloadData()
-        
+
         // 播放成功音效
         AudioServicesPlaySystemSound(1004)
-        
+
         // 重置掃描器
         resetScanner(complete: true)
     }
