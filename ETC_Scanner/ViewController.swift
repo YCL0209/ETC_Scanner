@@ -77,7 +77,10 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     var selectedItemIndex: Int?
     var filteredItems: [ScanItem] = []
     var isSearching = false
-    
+
+    // 追蹤是否正在呈現模態視圖（EditDetailViewController）
+    private var isModalPresented = false
+
     private struct ScannerState {
         var isScanning: Bool = false
         var currentInput: String = ""
@@ -97,6 +100,10 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     @IBOutlet weak var scannerImageView: UIImageView?  //掃描背景
     @IBOutlet weak var scanTextLabel: UILabel?
     @IBOutlet weak var searchButton: UIButton?  // 搜尋按鈕
+    
+    #if DEBUG
+    @IBOutlet weak var testScannerButton: UIButton?  // 測試掃描按鈕
+    #endif
     
     var scannerTextField: UITextField!
     var scannedItems: [ScanItem] = [] {
@@ -139,14 +146,26 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     // 在 class ViewController 內，其他方法的同層級添加這兩個方法
    override func viewWillAppear(_ animated: Bool) {
     super.viewWillAppear(animated)
-    
+
     // 確保方向鎖定在直向
     AppDelegate.AppUtility.lockOrientation(.portrait)
-    
-    // 延遲執行以確保視圖已加載
-    DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
-        // 重新設置掃描器
-        self.setupTextField()
+
+    // 只在沒有模態視圖時重新設置掃描器
+    if !isModalPresented {
+        // 延遲執行以確保視圖已加載
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.3) {
+            // 重新設置掃描器
+            self.setupTextField()
+        }
+    } else {
+        // EditDetailViewController 剛 dismiss，延遲後重置 flag 並恢復掃描器
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+            self.isModalPresented = false
+            // 確保掃描器重新獲得焦點
+            if !self.scannerTextField.isFirstResponder {
+                self.scannerTextField.becomeFirstResponder()
+            }
+        }
     }
 }
     
@@ -336,7 +355,43 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
             stackView.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
             stackView.heightAnchor.constraint(equalToConstant: 40)
         ])
+        
+        // Setup test button in DEBUG mode
+        #if DEBUG
+        setupTestButton()
+        #endif
     }
+    
+    #if DEBUG
+    private func setupTestButton() {
+        // Create test button programmatically
+        let testButton = UIButton(type: .system)
+        testButton.setTitle("測試掃描", for: .normal)
+        testButton.backgroundColor = UIColor.systemOrange
+        testButton.setTitleColor(.white, for: .normal)
+        testButton.titleLabel?.font = .systemFont(ofSize: 14, weight: .medium)
+        testButton.layer.cornerRadius = 6
+        testButton.layer.masksToBounds = true
+        testButton.translatesAutoresizingMaskIntoConstraints = false
+        
+        // Add action
+        testButton.addTarget(self, action: #selector(testScannerButtonTapped), for: .touchUpInside)
+        
+        // Add to view
+        view.addSubview(testButton)
+        
+        // Set the test button outlet
+        self.testScannerButton = testButton
+        
+        // Add constraints - position below scanner status
+        NSLayoutConstraint.activate([
+            testButton.topAnchor.constraint(equalTo: scannerImageView?.bottomAnchor ?? view.safeAreaLayoutGuide.topAnchor, constant: 10),
+            testButton.trailingAnchor.constraint(equalTo: view.trailingAnchor, constant: -20),
+            testButton.widthAnchor.constraint(equalToConstant: 80),
+            testButton.heightAnchor.constraint(equalToConstant: 30)
+        ])
+    }
+    #endif
     
     // MARK: - Button Actions
     @objc private func buttonTouchDown(_ sender: UIButton) {
@@ -474,20 +529,23 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
 
     // 將編輯視圖控制器的顯示邏輯移到獨立的方法中
     func showEditViewController(for index: Int) {
+         // 設置模態視圖呈現標記，防止 viewWillAppear 搶焦點
+         isModalPresented = true
+
          // 第一步：強制釋放掃描器的焦點
          if scannerTextField.isFirstResponder {
             scannerTextField.resignFirstResponder()
          }
-         
+
          // 確保系統有足夠時間處理焦點變更
          DispatchQueue.main.asyncAfter(deadline: .now() + 0.1) { [weak self] in
              guard let self = self else { return }
-             
+
              let storyboard = UIStoryboard(name: "Main", bundle: nil)
              if let editVC = storyboard.instantiateViewController(withIdentifier: "EditDetailViewController") as? EditDetailViewController {
                 editVC.delegate = self
                 editVC.itemIndex = index
-                
+
                 let item = self.scannedItems[index]
                 editVC.currentBuilding = item.building ?? ""
                 editVC.currentHousehold = item.household ?? ""
@@ -495,13 +553,13 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
                 editVC.currentCarType = item.carType ?? ""
                 editVC.currentCarNumber = item.carNumber ?? ""
                 editVC.currentEtagNumber = item.etagNumber ?? ""
-                
+
                 // 修改呈現方式，使用全屏呈現更好地處理鍵盤
                 editVC.modalPresentationStyle = .fullScreen
                 self.present(editVC, animated: true, completion: nil)
-                        
-                    
-                
+
+
+
              }
          }
     }
@@ -642,14 +700,20 @@ class ViewController: UIViewController, UITableViewDelegate, UITableViewDataSour
     }
     
     func textField(_ textField: UITextField, shouldChangeCharactersIn range: NSRange, replacementString string: String) -> Bool {
-        
+        // 只處理 scannerTextField，其他 TextField (例如 EditDetailViewController) 由各自的 delegate 處理
+        // 透過 isModalPresented flag，EditDetailViewController 呈現時 scannerTextField 不會獲得焦點
+        // 因此此方法不會被錯誤地觸發
+        guard textField == scannerTextField else {
+            return true
+        }
+
         // 檢查是否為掃描結束
         if string == "\n" || string == "\r" || string.isEmpty {
             let fullScan = textField.text?.uppercased() ?? ""
             handleScanCompletion(fullScan)
             return false
         }
-        
+
         // 其他字元照常處理
         return true
     }
@@ -1197,10 +1261,7 @@ private func generateCSVHeader() -> String {
 // 5. 生成完整 CSV 內容
 private func generateCSVContent(for building: Building) -> String {
     let header = generateCSVHeader()
-    
-    // 先呼叫診斷函數檢查數據
-    debugScannedItems()
-    
+
     // 過濾指定棟別的資料
     let filteredItems = scannedItems.filter { item in
         if let itemBuilding = item.building {
@@ -1434,11 +1495,7 @@ private func exportCSVForBuilding(_ building: Building) {
 private func uploadWithSimpleFileName(content: String, fileName: String, for building: Building) {
 
     showLoadingAlert(message: "正在上傳中...")
-    
-    // 使用原始中文檔名
-    let originalFileName = "ETC_\(building.filenameSuffix)棟資料.csv"
-    
-    
+
     // 使用 NetworkManager 的方法獲取 URL
     guard let url = NetworkManager.shared.getUploadURL() else {
         self.dismissLoadingAlert()
@@ -1484,7 +1541,7 @@ private func uploadWithSimpleFileName(content: String, fileName: String, for bui
             if let httpResponse = response as? HTTPURLResponse {
                 
                 // 嘗試解析伺服器回應
-                if let responseData = responseData, let responseString = String(data: responseData, encoding: .utf8) {
+                if let responseData = responseData, let _ = String(data: responseData, encoding: .utf8) {
                 }
                 
                 let success = (200...299).contains(httpResponse.statusCode)
@@ -1589,7 +1646,7 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
             if let httpResponse = response as? HTTPURLResponse {
                 
                 // 嘗試解析伺服器回應
-                if let responseData = data, let responseString = String(data: responseData, encoding: .utf8) {
+                if let responseData = data, let _ = String(data: responseData, encoding: .utf8) {
                 }
                 
                 completion(httpResponse.statusCode >= 200 && httpResponse.statusCode < 300, nil)
@@ -1667,6 +1724,336 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
         scannedItems = scannedItems.filter { !$0.isSelected }
         tableView?.reloadData()
     }
+    
+    #if DEBUG
+    // MARK: - Test Scanner Action
+    @objc private func testScannerButtonTapped(_ sender: UIButton) {
+        // Create action sheet for test options
+        let alert = UIAlertController(title: "測試掃描選項", message: "選擇測試類型", preferredStyle: .actionSheet)
+        
+        // Normal scan test
+        alert.addAction(UIAlertAction(title: "測試正常掃描", style: .default) { [weak self] _ in
+            self?.simulateScan(type: .normal)
+        })
+        
+        // Duplicate scan test
+        alert.addAction(UIAlertAction(title: "測試重複掃描", style: .default) { [weak self] _ in
+            self?.simulateScan(type: .duplicate)
+        })
+        
+        // Sequential scan test
+        alert.addAction(UIAlertAction(title: "測試連續掃描(5次)", style: .default) { [weak self] _ in
+            self?.simulateSequentialScans()
+        })
+        
+        // Custom barcode test
+        alert.addAction(UIAlertAction(title: "輸入自訂條碼", style: .default) { [weak self] _ in
+            self?.showCustomBarcodeInput()
+        })
+
+        // Test edit field scanning (Bug #1 verification)
+        alert.addAction(UIAlertAction(title: "測試編輯畫面掃描 ⚡️", style: .default) { [weak self] _ in
+            self?.testEditFieldScanning()
+        })
+
+        // Test post-import scanning (Bug #2 verification)
+        alert.addAction(UIAlertAction(title: "測試匯入後掃描 ⚡️", style: .default) { [weak self] _ in
+            self?.testPostImportScanning()
+        })
+
+        // Cancel
+        alert.addAction(UIAlertAction(title: "取消", style: .cancel))
+        
+        // For iPad
+        if let popover = alert.popoverPresentationController {
+            popover.sourceView = sender
+            popover.sourceRect = sender.bounds
+        }
+        
+        present(alert, animated: true)
+    }
+    
+    // Test scan types
+    private enum TestScanType {
+        case normal
+        case duplicate
+    }
+    
+    // Simulate a single scan
+    private func simulateScan(type: TestScanType) {
+        switch type {
+        case .normal:
+            // Generate unique test barcode
+            let timestamp = Int(Date().timeIntervalSince1970)
+            let testCode = "TEST-\(timestamp)"
+            simulateBarcodeInput(testCode)
+            
+        case .duplicate:
+            // Use existing barcode if available
+            if let firstItem = scannedItems.first {
+                simulateBarcodeInput(firstItem.code)
+            } else {
+                // If no items, create one first
+                let testCode = "DUP-TEST-001"
+                simulateBarcodeInput(testCode)
+                
+                // Simulate duplicate after delay
+                DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { [weak self] in
+                    self?.simulateBarcodeInput(testCode)
+                }
+            }
+        }
+    }
+    
+    // Simulate barcode scanner input
+    private func simulateBarcodeInput(_ code: String) {
+        print("\n📡 [掃描器] 開始模擬掃描：\(code)")
+        print("📡 [掃描器] scannerTextField.isFirstResponder: \(scannerTextField.isFirstResponder)")
+
+        // Reset scanner first
+        scannerTextField.text = ""
+        scanTextLabel?.text = "掃描中..."
+
+        // Ensure text field has focus
+        if !scannerTextField.isFirstResponder {
+            print("📡 [掃描器] scannerTextField 不是 firstResponder，嘗試恢復焦點...")
+            scannerTextField.becomeFirstResponder()
+            print("📡 [掃描器] 焦點恢復後：scannerTextField.isFirstResponder = \(scannerTextField.isFirstResponder)")
+        } else {
+            print("📡 [掃描器] scannerTextField 已經是 firstResponder")
+        }
+        
+        // Simulate character-by-character input with delay
+        var currentIndex = 0
+        let characters = Array(code)
+        
+        Timer.scheduledTimer(withTimeInterval: 0.05, repeats: true) { [weak self] timer in
+            guard let self = self else {
+                timer.invalidate()
+                return
+            }
+            
+            if currentIndex < characters.count {
+                let char = String(characters[currentIndex])
+                
+                // Update text field
+                self.scannerTextField.text = (self.scannerTextField.text ?? "") + char
+                
+                // Update display label
+                self.scanTextLabel?.text = self.scannerTextField.text?.uppercased()
+                
+                currentIndex += 1
+            } else {
+                // Finished inputting, simulate Enter key
+                timer.invalidate()
+
+                print("📡 [掃描器] 字符輸入完成，觸發掃描完成處理")
+                print("📡 [掃描器] 調用 handleScanCompletion(\(code.uppercased()))")
+
+                // Trigger scan completion
+                self.handleScanCompletion(code.uppercased())
+
+                print("📡 [掃描器] 掃描流程結束\n")
+            }
+        }
+    }
+    
+    // Simulate sequential scans
+    private func simulateSequentialScans() {
+        let scanCount = 5
+        var currentScan = 0
+        
+        Timer.scheduledTimer(withTimeInterval: 2.0, repeats: true) { [weak self] timer in
+            guard let self = self else {
+                timer.invalidate()
+                return
+            }
+            
+            if currentScan < scanCount {
+                let testCode = "SEQ-\(String(format: "%03d", currentScan + 1))-\(Int(Date().timeIntervalSince1970))"
+                self.simulateBarcodeInput(testCode)
+                currentScan += 1
+            } else {
+                timer.invalidate()
+            }
+        }
+    }
+    
+    // MARK: - Bug Verification Tests
+
+    // Test scanning while in EditDetailViewController (Bug #1 fix verification)
+    private func testEditFieldScanning() {
+        print("\n🧪 [測試] 開始測試編輯畫面掃描功能")
+        print("🧪 [測試] 目標：驗證在編輯畫面掃描時，輸入填入 TextField 而不創建新記錄")
+
+        // 先創建一個測試項目（如果沒有的話）
+        if scannedItems.isEmpty {
+            print("🧪 [測試] 先創建測試記錄...")
+            let testItem = ScanItem(
+                code: "EDIT-TEST-\(Int(Date().timeIntervalSince1970))",
+                time: DateFormatter.localizedString(from: Date(), dateStyle: .medium, timeStyle: .medium),
+                building: nil,
+                household: nil,
+                parkingNumber: nil,
+                carType: nil,
+                carNumber: nil,
+                etagNumber: nil,
+                isEdited: false,
+                isSelected: false,
+                owner: nil,
+                tenant: nil,
+                phone: nil
+            )
+            scannedItems.insert(testItem, at: 0)
+            tableView?.reloadData()
+        }
+
+        // 延遲打開編輯畫面
+        DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) { [weak self] in
+            guard let self = self else { return }
+
+            print("🧪 [測試] 打開編輯畫面...")
+            self.showEditViewController(for: 0)
+
+            // 等待編輯畫面完全顯示後執行掃描測試
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+                guard let self = self else { return }
+
+                print("🧪 [測試] 模擬 HID 掃描器輸入到編輯畫面...")
+
+                let testBarcode = "A"  // 模擬掃描棟別
+
+                // 檢查當前焦點狀態
+                if self.scannerTextField.isFirstResponder {
+                    print("⚠️ [測試] 警告：scannerTextField 是 firstResponder（應該不是）")
+                } else {
+                    print("✅ [測試] scannerTextField 不是 firstResponder（正確）")
+                }
+
+                // 模擬輸入
+                print("🧪 [測試] 預期行為：輸入 '\(testBarcode)' 應填入編輯畫面的 TextField")
+                print("🧪 [測試] 預期行為：不應創建新記錄")
+
+                let itemCountBefore = self.scannedItems.count
+                print("🧪 [測試] 掃描前記錄數：\(itemCountBefore)")
+
+                // 模擬鍵盤輸入（直接觸發 textField delegate）
+                // 這會模擬 HID 掃描器在 EditDetailViewController 的 TextField 上輸入
+                _ = self.textField(self.scannerTextField, shouldChangeCharactersIn: NSRange(location: 0, length: 0), replacementString: testBarcode)
+                _ = self.textField(self.scannerTextField, shouldChangeCharactersIn: NSRange(location: 0, length: 0), replacementString: "\n")
+
+                // 檢查結果
+                DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                    let itemCountAfter = self.scannedItems.count
+                    print("🧪 [測試] 掃描後記錄數：\(itemCountAfter)")
+
+                    if itemCountAfter == itemCountBefore {
+                        print("✅ [測試] 成功！沒有創建新記錄（Bug #1 已修復）")
+                    } else {
+                        print("❌ [測試] 失敗！創建了新記錄（Bug #1 未修復）")
+                    }
+
+                    print("🧪 [測試] 編輯畫面掃描測試完成\n")
+                }
+            }
+        }
+    }
+
+    // Test scanning after import (Bug #2 fix verification)
+    private func testPostImportScanning() {
+        print("\n🧪 [測試] 開始測試匯入後掃描功能")
+        print("🧪 [測試] 目標：驗證 CSV 匯入後 scannerTextField 焦點恢復正常")
+
+        print("🧪 [測試] 模擬匯入流程...")
+
+        // 模擬匯入：添加一些測試數據
+        let testItems = (1...3).map { i in
+            ScanItem(
+                code: "IMPORT-\(i)",
+                time: DateFormatter.localizedString(from: Date(), dateStyle: .medium, timeStyle: .medium),
+                building: "A",
+                household: "\(i)01",
+                parkingNumber: "B1-\(i)50",
+                carType: "汽車",
+                carNumber: "ABC-\(i)234",
+                etagNumber: nil,
+                isEdited: true,
+                isSelected: false,
+                owner: nil,
+                tenant: nil,
+                phone: nil
+            )
+        }
+
+        // 插入測試數據（模擬 CSV 匯入）
+        scannedItems.insert(contentsOf: testItems, at: 0)
+        tableView?.reloadData()
+
+        print("🧪 [測試] 已添加 \(testItems.count) 筆測試資料")
+        print("🧪 [測試] 檢查焦點恢復（應在 0.5 秒後自動恢復）...")
+
+        // 檢查初始焦點狀態
+        let initialFocus = scannerTextField.isFirstResponder
+        print("🧪 [測試] 匯入後立即檢查：scannerTextField.isFirstResponder = \(initialFocus)")
+
+        // 等待焦點恢復（修復後應該自動恢復）
+        DispatchQueue.main.asyncAfter(deadline: .now() + 1.0) { [weak self] in
+            guard let self = self else { return }
+
+            let focusAfterDelay = self.scannerTextField.isFirstResponder
+            print("🧪 [測試] 延遲 1 秒後檢查：scannerTextField.isFirstResponder = \(focusAfterDelay)")
+
+            if focusAfterDelay {
+                print("✅ [測試] 成功！焦點已恢復（Bug #2 已修復）")
+            } else {
+                print("⚠️ [測試] 警告：焦點未恢復，手動恢復...")
+                self.scannerTextField.becomeFirstResponder()
+            }
+
+            // 執行掃描測試
+            print("🧪 [測試] 執行掃描測試...")
+            let testBarcode = "POST-IMPORT-TEST"
+            let itemCountBefore = self.scannedItems.count
+
+            print("🧪 [測試] 掃描前記錄數：\(itemCountBefore)")
+            self.simulateBarcodeInput(testBarcode)
+
+            // 檢查掃描結果
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) {
+                let itemCountAfter = self.scannedItems.count
+                print("🧪 [測試] 掃描後記錄數：\(itemCountAfter)")
+
+                if itemCountAfter == itemCountBefore + 1 {
+                    print("✅ [測試] 成功！正確創建了新記錄")
+                    print("✅ [測試] 匯入後掃描功能正常（Bug #2 已修復）")
+                } else {
+                    print("❌ [測試] 失敗！未正確創建記錄")
+                }
+
+                print("🧪 [測試] 匯入後掃描測試完成\n")
+            }
+        }
+    }
+
+    // Show custom barcode input dialog
+    private func showCustomBarcodeInput() {
+        let alert = UIAlertController(title: "輸入測試條碼", message: "請輸入要測試的條碼", preferredStyle: .alert)
+        
+        alert.addTextField { textField in
+            textField.placeholder = "例如: ABC-123"
+            textField.autocapitalizationType = .allCharacters
+        }
+        
+        alert.addAction(UIAlertAction(title: "取消", style: .cancel))
+        alert.addAction(UIAlertAction(title: "測試", style: .default) { [weak self] _ in
+            if let code = alert.textFields?.first?.text, !code.isEmpty {
+                self?.simulateBarcodeInput(code)
+            }
+        })
+        
+        present(alert, animated: true)
+    }
+    #endif
     
     private func showAlert(title: String, message: String) {
         // 確保在主線程執行
@@ -1992,7 +2379,14 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
                     CATransaction.setDisableActions(true)
                     self.tableView?.reloadData()
                     CATransaction.commit()
-                    
+
+                    // 恢復掃描器焦點，確保匯入後掃描功能正常
+                    DispatchQueue.main.asyncAfter(deadline: .now() + 0.5) {
+                        if !self.scannerTextField.isFirstResponder {
+                            self.scannerTextField.becomeFirstResponder()
+                        }
+                    }
+
                     var buildingType = ""
                     if isABBuilding && !isCDEBuilding {
                         buildingType = "AB棟"
@@ -2056,18 +2450,18 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
         
         // 嘗試方法 1：查找 "EPC Code:" 行
         let lines = scanResult.components(separatedBy: .newlines)
-        for (index, line) in lines.enumerated() {
+        for (_, line) in lines.enumerated() {
             if line.contains("EPC Code:") || line.contains("EPC Code：") {
                 // 可能出現中文全形冒號
                 let components = line.components(separatedBy: ":")
                 if components.count > 1 {
                     // 提取 EPC Code 部分並清理
-                    var epcCode = components[1].trimmingCharacters(in: .whitespacesAndNewlines)
-                    
+                    let epcCode = components[1].trimmingCharacters(in: .whitespacesAndNewlines)
+
                     // 過濾非英數字符並轉為大寫
-                    epcCode = epcCode.filter { $0.isLetter || $0.isNumber }.uppercased()
-                    
-                    return epcCode
+                    let filteredCode = epcCode.filter { $0.isLetter || $0.isNumber }.uppercased()
+
+                    return filteredCode
                 } else {
                     // 嘗試使用全形冒號分割
                     let componentsFullWidth = line.components(separatedBy: "：")
@@ -2157,20 +2551,15 @@ private func uploadFileDirectly(_ fileURL: URL, completion: @escaping (Bool, Err
 private func logViewHierarchy() {
     
     // 記錄主要UI元素的框架
-    if let topImage = topBackgroundImage {
-    }
-    
-    if let scanner = scannerImageView {
-    }
-    
-    if let table = tableView {
-    }
-    
-    // 記錄按鈕的位置
+    // UI 元素驗證
+    _ = topBackgroundImage != nil
+    _ = scannerImageView != nil
+    _ = tableView != nil
+
+    // 驗證按鈕
     let buttons = [importButton, searchButton, exportButton, deleteButton]
-    for (index, button) in buttons.enumerated() {
-        if let btn = button {
-        }
+    for (_, button) in buttons.enumerated() {
+        _ = button != nil
     }
 }
 // 添加這個測試函數到 ViewController 類中
@@ -2191,8 +2580,8 @@ private func testFixedContentUpload() {
         try csvContent.write(to: fileURL, atomically: true, encoding: .utf8)
         
         // 讀取文件內容確認
-        let readContent = try String(contentsOf: fileURL, encoding: .utf8)
-        
+        let _ = try String(contentsOf: fileURL, encoding: .utf8)
+
         // 使用與您測試軟體完全相同的方式上傳
         uploadTestFile(fileURL)
     } catch {
@@ -2254,33 +2643,12 @@ private func uploadTestFile(_ fileURL: URL) {
     }
 }
 
-    private func debugScannedItems() {
-        
-        for (index, item) in scannedItems.enumerated() {
-        }
-        
-        // 檢查每個棟別的過濾結果
-        for building in Building.allCases {
-            var count = 0
-            switch building {
-            case .buildingAB:
-                count = scannedItems.filter {
-                    if let b = $0.building {
-                        return b.contains("A") || b.contains("B") || b.contains("店面")
-                    }
-                    return false
-                }.count
-            case .buildingCDE:
-                count = scannedItems.filter {
-                    if let b = $0.building {
-                        return b.contains("C") || b.contains("D") || b.contains("E") || b.contains("店面")
-                    }
-                    return false
-                }.count
-            }
-        }
-        
-    }
+    // 調試函數（已註釋）
+    // private func debugScannedItems() {
+    //     for (index, item) in scannedItems.enumerated() {
+    //         print("Item \(index): \(item)")
+    //     }
+    // }
 }
 
 

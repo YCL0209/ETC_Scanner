@@ -18,15 +18,9 @@
                         <autoresizingMask key="autoresizingMask" flexibleMaxX="YES" flexibleMaxY="YES"/>
                         <subviews>
                             <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleToFill" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="TopImageView" translatesAutoresizingMaskIntoConstraints="NO" id="ZsZ-Ny-QfD">
-                                <rect key="frame" x="0.0" y="0.0" width="393" height="136"/>
+                                <rect key="frame" x="0.0" y="0.0" width="393" height="143"/>
                                 <constraints>
-                                    <constraint firstAttribute="height" constant="136" id="Qgz-Fy-8Yz"/>
-                                </constraints>
-                            </imageView>
-                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="scanner_background" adjustsImageSizeForAccessibilityContentSizeCategory="YES" translatesAutoresizingMaskIntoConstraints="NO" id="zYs-wY-TNv">
-                                <rect key="frame" x="16" y="106" width="393" height="50"/>
-                                <constraints>
-                                    <constraint firstAttribute="height" constant="50" id="Ydw-wB-2Vc"/>
+                                    <constraint firstAttribute="height" constant="143" id="Qgz-Fy-8Yz"/>
                                 </constraints>
                             </imageView>
                             <tableView clipsSubviews="YES" contentMode="scaleToFill" alwaysBounceVertical="YES" dataMode="prototypes" style="plain" separatorStyle="default" rowHeight="125" estimatedRowHeight="-1" sectionHeaderHeight="-1" estimatedSectionHeaderHeight="-1" sectionFooterHeight="-1" estimatedSectionFooterHeight="-1" translatesAutoresizingMaskIntoConstraints="NO" id="pK1-59-fYp" userLabel="tableView">
@@ -89,7 +83,7 @@
                                 </connections>
                             </button>
                             <label opaque="NO" contentMode="left" horizontalHuggingPriority="251" verticalHuggingPriority="251" text="等待掃描．．．" textAlignment="center" lineBreakMode="tailTruncation" baselineAdjustment="alignBaselines" adjustsFontSizeToFit="NO" translatesAutoresizingMaskIntoConstraints="NO" id="UaV-Am-ZZ2" userLabel="scanTextLabel">
-                                <rect key="frame" x="87" y="114" width="267" height="35"/>
+                                <rect key="frame" x="80" y="114" width="267" height="35"/>
                                 <constraints>
                                     <constraint firstAttribute="width" constant="267" id="JNX-wN-tuW"/>
                                     <constraint firstAttribute="height" constant="35" id="jYK-2u-ouu"/>
@@ -110,11 +104,17 @@
                                     <action selector="searchButtonTapped:" destination="BYZ-38-t0r" eventType="touchUpInside" id="ao5-OY-xeL"/>
                                 </connections>
                             </button>
+                            <imageView clipsSubviews="YES" userInteractionEnabled="NO" contentMode="scaleAspectFit" horizontalHuggingPriority="251" verticalHuggingPriority="251" image="scanner_background" adjustsImageSizeForAccessibilityContentSizeCategory="YES" translatesAutoresizingMaskIntoConstraints="NO" id="zYs-wY-TNv">
+                                <rect key="frame" x="0.0" y="106" width="393" height="50"/>
+                                <constraints>
+                                    <constraint firstAttribute="height" constant="50" id="Ydw-wB-2Vc"/>
+                                </constraints>
+                            </imageView>
                         </subviews>
                         <viewLayoutGuide key="safeArea" id="jGu-c3-CUX"/>
                         <color key="backgroundColor" systemColor="systemBackgroundColor"/>
                         <constraints>
-                            <constraint firstItem="UaV-Am-ZZ2" firstAttribute="leading" secondItem="jGu-c3-CUX" secondAttribute="leading" constant="87" id="1GI-Dw-Sg7"/>
+                            <constraint firstItem="UaV-Am-ZZ2" firstAttribute="leading" secondItem="jGu-c3-CUX" secondAttribute="leading" constant="80" id="1GI-Dw-Sg7"/>
                             <constraint firstItem="Lih-Jw-RBD" firstAttribute="leading" secondItem="9ho-w4-aQv" secondAttribute="trailing" constant="22" id="HdT-sn-bmU"/>
                             <constraint firstItem="UaV-Am-ZZ2" firstAttribute="top" secondItem="9Dz-WV-Prp" secondAttribute="topMargin" constant="55" id="L8G-12-a7p"/>
                             <constraint firstItem="9ho-w4-aQv" firstAttribute="leading" secondItem="jGu-c3-CUX" secondAttribute="leading" constant="22" id="MjM-FD-RVN"/>
@@ -128,8 +128,8 @@
                             <constraint firstItem="ZsZ-Ny-QfD" firstAttribute="top" secondItem="9Dz-WV-Prp" secondAttribute="top" id="pBK-Rh-Ggp"/>
                             <constraint firstItem="ZsZ-Ny-QfD" firstAttribute="leading" secondItem="9Dz-WV-Prp" secondAttribute="leading" id="qhT-Eo-4HL"/>
                             <constraint firstAttribute="trailing" secondItem="ZsZ-Ny-QfD" secondAttribute="trailing" id="rXk-KW-Uf7"/>
-                            <constraint firstItem="zYs-wY-TNv" firstAttribute="leading" secondItem="jGu-c3-CUX" secondAttribute="leading" constant="16" id="sNq-Uf-Tqm"/>
-                            <constraint firstItem="zYs-wY-TNv" firstAttribute="trailing" secondItem="jGu-c3-CUX" secondAttribute="trailing" constant="16" id="tBH-yU-Ybf"/>
+                            <constraint firstItem="zYs-wY-TNv" firstAttribute="leading" secondItem="jGu-c3-CUX" secondAttribute="leading" id="sNq-Uf-Tqm"/>
+                            <constraint firstItem="zYs-wY-TNv" firstAttribute="trailing" secondItem="jGu-c3-CUX" secondAttribute="trailing" id="tBH-yU-Ybf"/>
                             <constraint firstItem="zYs-wY-TNv" firstAttribute="top" secondItem="9Dz-WV-Prp" secondAttribute="top" constant="106" id="vQZ-Zj-v9C"/>
                             <constraint firstItem="pK1-59-fYp" firstAttribute="leading" secondItem="jGu-c3-CUX" secondAttribute="leading" id="wJC-Wd-Lkm"/>
                             <constraint firstItem="pK1-59-fYp" firstAttribute="top" secondItem="9ho-w4-aQv" secondAttribute="bottom" constant="20" id="xWF-UG-LsL"/>
