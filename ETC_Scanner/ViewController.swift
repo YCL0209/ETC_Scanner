@@ -1472,6 +1472,26 @@ private func exportCSVForBuilding(_ building: Building) {
 // 使用非常簡單明確的上傳方法，專注於檔案名稱問題
 private func uploadWithSimpleFileName(content: String, fileName: String, for building: Building) {
 
+    // 檔案大小和內容驗證
+    guard let csvData = content.data(using: .utf8) else {
+        showAlert(title: "錯誤", message: "無法處理 CSV 內容")
+        return
+    }
+
+    // 檢查最小檔案大小（100 bytes）
+    let minFileSize = 100
+    if csvData.count < minFileSize {
+        showAlert(title: "無可匯出的資料", message: "檔案內容過小（\(csvData.count) bytes），請確認已掃描或補充資料")
+        return
+    }
+
+    // 檢查是否只有 header 沒有資料行
+    let lines = content.components(separatedBy: .newlines).filter { !$0.trimmingCharacters(in: .whitespaces).isEmpty }
+    if lines.count <= 1 {
+        showAlert(title: "無可匯出的資料", message: "CSV 檔案中沒有資料，僅包含標題行")
+        return
+    }
+
     showLoadingAlert(message: "正在上傳中...")
 
     // 使用 NetworkManager 的方法獲取 URL
