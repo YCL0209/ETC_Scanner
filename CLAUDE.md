@@ -555,6 +555,23 @@ style: Format Swift code according to conventions
 
 ## 📅 CHANGELOG
 
+### Version 3.2 (2026-11-11) - 自動上傳失敗通知
+- 🔔 **新增失敗通知**（`fastlane/notify.sh`）：失敗時跳 macOS 常駐對話框＋Email（經 GAS），不再默默失敗
+- 🩺 **失敗原因分類**：合約過期、防火牆攔截（FortiGate SSL 檢查擋 `contentdelivery.itunes.apple.com`）、網路、API 金鑰、build 號、簽署、編譯
+- 📦 2026-10-12 起因 Apple 合約過期連續失敗一個月；簽約並改用手機熱點繞過防火牆後已上傳 build 1.2 (10)，下次 2027-01-30 後
+
+### Version 3.1 (2026-07-24) - CI/CD 自動上傳修復與自動化
+- 🐛 **修復壞掉的 fastlane 自動上傳**
+  - 修正 Fastfile 金鑰路徑（`33P2U2Z62C.p8` → `AuthKey_33P2U2Z62C.p8`），`beta`/`uploadonly` 兩 lane 都修好
+  - `beta` lane 改用 `latest_testflight_build_number`+1 對齊 TestFlight，避免 build 號被退件
+  - 新增唯讀診斷 lane `latestbuild`（驗金鑰＋看最新 build，不上傳）
+  - 專案加入 `VERSIONING_SYSTEM = apple-generic`，讓 `increment_build_number` 正常運作
+- 🔐 **新增 `.gitignore`**：忽略 `*.p8` 私鑰、build 產物與執行期檔案，避免誤提交金鑰
+- 🤖 **建立 launchd 定時自動上傳**（`com.etcscanner.autobeta` + `fastlane/auto_beta.sh`）
+  - 每 80 天自動跑 `fastlane ios beta`（登入/開機 + 每天 13:30 檢查），含成功/失敗 macOS 通知
+  - 本次已實際上傳 build 1.2 (9)；下次自動上傳 2026-10-12 後
+  - 詳見 `TestFlight自動上傳說明.md`
+
 ### Version 3.0 (2025-07-17) - MVVM Architecture Refactoring
 - 🏗️ **Major Architecture Overhaul**
   - Migrated from MVC to MVVM architecture pattern

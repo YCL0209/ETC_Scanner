@@ -1,0 +1,81 @@
+# This file contains the fastlane.tools configuration
+# You can find the documentation at https://docs.fastlane.tools
+#
+# For a list of all available actions, check out
+#
+#     https://docs.fastlane.tools/actions
+#
+# For a list of all available plugins, check out
+#
+#     https://docs.fastlane.tools/plugins/available-plugins
+#
+
+# Uncomment the line if you want fastlane to automatically update itself
+# update_fastlane
+
+default_platform(:ios)
+
+platform :ios do
+  # 共用：建立 App Store Connect API Key 物件
+  def make_api_key
+    app_store_connect_api_key(
+      key_id: "33P2U2Z62C",
+      issuer_id: "2505df86-df23-4f5a-b2d6-489a41a4bb06",
+      key_filepath: "./fastlane/AuthKey_33P2U2Z62C.p8",
+      duration: 1200,
+      in_house: false
+    )
+  end
+
+  desc "Push a new beta build to TestFlight"
+  lane :beta do
+    api_key = make_api_key
+
+    # 以 TestFlight 上目前最新的 build number 為基準 +1，
+    # 避免本地 build 號落後、上傳時被以「重複或更低的 build number」退件
+    latest_build = latest_testflight_build_number(
+      api_key: api_key,
+      app_identifier: "com.ETC-Scanner",
+      initial_build_number: 0
+    )
+    increment_build_number(
+      xcodeproj: "ETC_Scanner.xcodeproj",
+      build_number: latest_build + 1
+    )
+
+    build_app(scheme: "ETC_Scanner")
+    upload_to_testflight(
+      api_key: api_key,
+      uses_non_exempt_encryption: false,
+      # 內部群組 SUIYAO 設定為自動取得所有 build，不需在此指定。
+      # 外部群組必須明確指派 + 通過 Beta App Review 才會發給外部測試者，
+      # 否則自動上傳只會進內部，外部 build 到期後就斷線。
+      distribute_external: true,
+      groups: ["外部"],
+      changelog: "定期維護更新，維持測試版有效期。",
+      submit_beta_review: true
+    )
+  end
+
+  desc "只測上傳(用現有 ipa)"
+  lane :uploadonly do
+    api_key = make_api_key
+    upload_to_testflight(
+      api_key: api_key,
+      ipa: "./ETC_Scanner.ipa",
+      skip_waiting_for_build_processing: true,
+      uses_non_exempt_encryption: false
+    )
+  end
+
+  desc "唯讀診斷：驗證 API Key 並印出 TestFlight 目前最新 build number（不會上傳）"
+  lane :latestbuild do
+    api_key = make_api_key
+    latest_build = latest_testflight_build_number(
+      api_key: api_key,
+      app_identifier: "com.ETC-Scanner",
+      initial_build_number: 0
+    )
+    UI.success("✅ 驗證成功｜TestFlight 目前最新 build = #{latest_build}，下次 beta 將上傳 build #{latest_build + 1}")
+  end
+end
