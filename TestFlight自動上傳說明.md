@@ -58,7 +58,7 @@ fastlane/auto_beta.sh
    ▼
 bundle exec fastlane ios beta   →  上傳 TestFlight
    │  成功 → 更新 .last_upload_epoch + macOS 成功通知
-   └  失敗 → 判斷原因 → macOS 常駐對話框（按「知道了」才消失）＋ Email（不會默默壞掉）
+   └  失敗 → 判斷原因 → macOS 常駐對話框（按「知道了」才消失，不會默默壞掉）
 ```
 
 - **沒開機的日子**：那天不會跑，但**下次開機**會補檢查 → 符合「當天有開機就會傳」。
@@ -72,8 +72,7 @@ bundle exec fastlane ios beta   →  上傳 TestFlight
 |---|---|
 | `fastlane/Fastfile` | 三個 lane：`beta`（自動遞增上傳）/ `uploadonly`（用現有 ipa 上傳）/ `latestbuild`（唯讀診斷） |
 | `fastlane/auto_beta.sh` | 自動上傳判斷腳本（80 天判斷＋失敗原因分類＋通知＋記錄） |
-| `fastlane/notify.sh` | 通知：macOS 通知／失敗常駐對話框／Email（經 Google Apps Script） |
-| `fastlane/.notify.env` | 通知收件人、GAS 網址與金鑰（gitignore） |
+| `fastlane/notify.sh` | 通知：macOS 通知／失敗時常駐對話框 |
 | `~/Library/LaunchAgents/com.etcscanner.autobeta.plist` | launchd 排程設定 |
 | `fastlane/.last_upload_epoch` | 記錄上次上傳時間（gitignore） |
 | `fastlane/auto_beta.log` | 自動上傳執行紀錄（gitignore） |
@@ -137,5 +136,4 @@ launchctl load -w ~/Library/LaunchAgents/com.etcscanner.autobeta.plist
 
 > TestFlight build 90 天過期；80 天週期留有 10 天緩衝處理失敗。
 
-**Email 通知**：透過 App 既有的 Google Apps Script 寄信服務，收件人設定在 `fastlane/.notify.env`。若 GAS 部署的「誰可以存取」不是「所有人」，會回「存取遭拒」而寄不出（log 會記錄 `[notify] email 寄送失敗`），macOS 對話框不受影響。
 

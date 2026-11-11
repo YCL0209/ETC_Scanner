@@ -18,7 +18,7 @@ export FASTLANE_SKIP_UPDATE_CHECK=1 FASTLANE_HIDE_CHANGELOG=1
 FASTLANE_BIN="/opt/homebrew/bin/fastlane"
 
 log() { echo "[$(date '+%Y-%m-%d %H:%M:%S')] $*" >> "$LOG_FILE"; }
-# notify <success|failure> <標題> <內容>：macOS 通知（失敗時另跳常駐對話框）+ Email，見 notify.sh
+# notify <success|failure> <標題> <內容>：macOS 通知（失敗時另跳常駐對話框），見 notify.sh
 notify() { /bin/bash "$PROJECT_DIR/fastlane/notify.sh" "$@" >> "$LOG_FILE" 2>&1 || true; }
 
 cd "$PROJECT_DIR" || { log "❌ 找不到專案目錄 $PROJECT_DIR"; exit 1; }

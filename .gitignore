@@ -31,5 +31,3 @@ fastlane/.last_upload_epoch
 vendor/bundle/
 .bundle/
 
-# 通知設定（含 email / API 金鑰）
-fastlane/.notify.env

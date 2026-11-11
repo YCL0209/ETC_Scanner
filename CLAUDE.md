@@ -556,7 +556,7 @@ style: Format Swift code according to conventions
 ## 📅 CHANGELOG
 
 ### Version 3.2 (2026-11-11) - 自動上傳失敗通知
-- 🔔 **新增失敗通知**（`fastlane/notify.sh`）：失敗時跳 macOS 常駐對話框＋Email（經 GAS），不再默默失敗
+- 🔔 **新增失敗通知**（`fastlane/notify.sh`）：失敗時跳 macOS 常駐對話框，不再默默失敗（不寄 Email：GAS 僅限本人使用）
 - 🩺 **失敗原因分類**：合約過期、防火牆攔截（FortiGate SSL 檢查擋 `contentdelivery.itunes.apple.com`）、網路、API 金鑰、build 號、簽署、編譯
 - 📦 2026-10-12 起因 Apple 合約過期連續失敗一個月；簽約並改用手機熱點繞過防火牆後已上傳 build 1.2 (10)，下次 2027-01-30 後
 
